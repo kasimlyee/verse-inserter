@@ -2,7 +2,7 @@
 
 **Version:** 1.0.0  
 **Developer:** Kasim Lyee ([lyee@codewithlyee.com](mailto:lyee@codewithlyee.com))  
-**Organization:** Softlite Inc.  
+**Company:** Softlite Inc.  
 **License:** MIT
 
 > *"Inserting Scripture Seamlessly into Your Words."*
