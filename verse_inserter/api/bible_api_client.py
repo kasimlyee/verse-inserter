@@ -12,7 +12,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from ..models.verse import Verse, VerseReference, TranslationType
 from ..utils.logger import get_logger
-from .api_exceptions import APIError, RateLimitError, AuthenticationError
+from .api_exceptions import APIError, APIRateLimitError as RateLimitError, APIAuthenticationError as AuthenticationError
 
 logger = get_logger(__name__)
 
