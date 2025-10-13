@@ -12,15 +12,15 @@ Write-Host ""
 if (-not (Get-Command poetry -ErrorAction SilentlyContinue)) {
     Write-Host "ERROR: Poetry is not installed or not in PATH" -ForegroundColor Red
     Write-Host "Please install Poetry first: https://python-poetry.org/docs/#installation"
-    pause
+    Read-Host "Press Enter to exit"
     exit 1
 }
 
 # Check if Python is available
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
     Write-Host "ERROR: Python is not installed or not in PATH" -ForegroundColor Red
-    Write-Host "Please install Python 3.12 or higher"
-    pause
+    Write-Host "Please install Python 3.12-3.14"
+    Read-Host "Press Enter to exit"
     exit 1
 }
 
@@ -29,7 +29,7 @@ Write-Host "[1/3] Installing dependencies..." -ForegroundColor Yellow
 poetry install --no-root
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Failed to install dependencies" -ForegroundColor Red
-    pause
+    Read-Host "Press Enter to exit"
     exit 1
 }
 
@@ -38,7 +38,7 @@ Write-Host "[2/3] Building executable with PyInstaller..." -ForegroundColor Yell
 poetry run pyinstaller verse_inserter.spec --clean --noconfirm
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Build failed" -ForegroundColor Red
-    pause
+    Read-Host "Press Enter to exit"
     exit 1
 }
 
@@ -55,4 +55,4 @@ Write-Host ""
 Write-Host "To distribute, copy the entire 'dist' folder or just the"
 Write-Host "VerseInserter.exe file (if using --onefile mode)"
 Write-Host ""
-pause
+Read-Host "Press Enter to exit"

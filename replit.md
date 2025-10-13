@@ -72,12 +72,13 @@ All dependencies are managed via Poetry and include:
 - `diskcache` - Persistent caching
 - `colorlog` - Colored logging
 - `Pillow` - Image handling
+- `pyinstaller` - Windows executable builder (v6.16.0)
 
 ## How to Use This Project
 
-### Option 1: Run Locally (Recommended)
+### Option 1: Build Windows Executable (Recommended for Distribution)
 
-Since this is a desktop GUI application, you should run it on your local machine:
+To create a standalone .exe file for Windows:
 
 1. **Clone the repository:**
    ```bash
@@ -85,9 +86,53 @@ Since this is a desktop GUI application, you should run it on your local machine
    cd verse-inserter
    ```
 
-2. **Install Python 3.12+:**
+2. **Install Python 3.12-3.14:**
    - Download from [python.org](https://python.org)
-   - Ensure Python 3.12 or higher is installed
+   - PyInstaller requires Python 3.12-3.14
+
+3. **Install Poetry:**
+   ```bash
+   pip install poetry
+   ```
+
+4. **Build the executable:**
+   
+   **Using Batch (Command Prompt):**
+   ```cmd
+   build_windows.bat
+   ```
+   
+   **Using PowerShell:**
+   ```powershell
+   .\build_windows.ps1
+   ```
+   
+   **Manual Build:**
+   ```bash
+   poetry install --no-root
+   poetry run pyinstaller verse_inserter.spec --clean --noconfirm
+   ```
+
+5. **Run the executable:**
+   - Find `dist\VerseInserter.exe`
+   - Double-click to run
+   - No Python installation required on target machine
+
+**See BUILD.md for complete build documentation.**
+
+### Option 2: Run Locally (Development)
+
+For development and testing:
+
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd verse-inserter
+   ```
+
+2. **Install Python 3.12-3.14:**
+   - Download from [python.org](https://python.org)
+   - Ensure Python 3.12-3.14 is installed
 
 3. **Install Poetry:**
    ```bash
@@ -109,7 +154,7 @@ Since this is a desktop GUI application, you should run it on your local machine
    - Get a free API key
    - Enter it in the Settings dialog
 
-### Option 2: Test Core Functionality (Replit)
+### Option 3: Test Core Functionality (Replit)
 
 In Replit, you can test that the core modules load correctly:
 
@@ -253,6 +298,14 @@ MIT License - See LICENSE file for details.
 
 ## Recent Changes
 
+### 2024-10-13 (Windows Build Setup)
+- Installed PyInstaller 6.16.0 for Windows executable creation
+- Created PyInstaller spec file with all dependencies configured
+- Built Windows build automation scripts (batch and PowerShell)
+- Created comprehensive BUILD.md documentation
+- Updated Python version constraint for PyInstaller compatibility (>=3.12,<3.15)
+- Added build instructions to documentation
+
 ### 2024-10-13 (Replit Setup)
 - Installed Python 3.12 environment
 - Installed all dependencies via Poetry
@@ -266,6 +319,7 @@ MIT License - See LICENSE file for details.
 - ✅ Core modules: Working
 - ✅ Dependencies: Installed
 - ✅ Package structure: Corrected
+- ✅ Windows build: Ready (PyInstaller configured)
 - ❌ GUI: Cannot run in Replit (requires local display)
 - ✅ Documentation: Complete
 
