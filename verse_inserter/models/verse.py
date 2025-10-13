@@ -66,6 +66,12 @@ class Placeholder:
     location: str
     paragraph_index: Optional[int] = None
     run_index: Optional[int] = None
+    position: int = 0
+    
+    @property
+    def unique_key(self) -> str:
+        """Get unique key for deduplication."""
+        return self.reference.canonical_reference
     
     def __str__(self) -> str:
         return f"Placeholder({self.original_text} at {self.location})"
