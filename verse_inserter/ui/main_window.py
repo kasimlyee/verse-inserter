@@ -5,7 +5,7 @@ Implements the primary user interface using ttkbootstrap for a modern,
 professional appearance with comprehensive user controls and real-time feedback.
 
 Author: Kasim Lyee <lyee@codewithlyee.com>
-Company: Softlite Inc.
+Organization: Softlite Inc.
 License: MIT
 """
 
@@ -596,8 +596,15 @@ class MainWindow(ttk.Window):
     
     def _show_settings(self) -> None:
         """Show settings dialog."""
-        # TODO: Implement settings dialog
-        messagebox.showinfo("Settings", "Settings dialog coming soon!")
+        from .widgets.settings_dialog import SettingsDialog
+        
+        dialog = SettingsDialog(self, self.settings)
+        self.wait_window(dialog)
+        
+        # If settings were saved, reload components
+        if dialog.result == "saved":
+            logger.info("Settings updated, reloading components")
+            # Reinitialize components with new settings if needed
     
     def _show_about(self) -> None:
         """Show about dialog."""
