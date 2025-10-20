@@ -80,7 +80,7 @@ class CacheManager:
     
     def _make_key(self, reference: VerseReference) -> str:
         """Generate cache key from verse reference."""
-        return f"{reference.translation.code}:{reference.canonical_reference}"
+        return f"{reference.translation.value}:{reference.canonical_reference}"
     
     def get_stats(self) -> dict:
         """Get cache statistics."""

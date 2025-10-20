@@ -249,18 +249,17 @@ class PlaceholderParser:
             
             # Create verse reference
             reference = VerseReference(
-                book=book.strip(),
-                chapter=int(chapter),
-                verse_start=int(start_verse),
-                verse_end=int(end_verse) if end_verse else None,
-                translation=self.default_translation,
-            )
+    		book=book.strip(),
+    		chapter=int(chapter),
+    		start_verse=int(start_verse),      # ✅ CORRECT FIELD NAME
+    		end_verse=int(end_verse) if end_verse else None,  # ✅ CORRECT FIELD NAME
+    		translation=self.default_translation,
+	    )
             
             # Create placeholder
             placeholder = Placeholder(
                 reference=reference,
-                original_text=match.group(0),
-                location=f"paragraph {paragraph_index}, position {match.start() + position_offset}",
+                raw_text=match.group(0),
                 paragraph_index=paragraph_index,
                 position=match.start() + position_offset,
             )
