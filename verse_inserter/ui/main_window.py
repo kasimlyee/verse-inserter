@@ -449,7 +449,7 @@ class MainWindow(ttk.Window if THEME else tk.Tk):
             self.is_processing = False
             self._log_message("⚠ Processing stopped by user")
             self.status_var.set("Processing stopped")
-    
+			
 	def _process_document_async(self) -> None:
 	    """Async document processing."""
 	    try:
