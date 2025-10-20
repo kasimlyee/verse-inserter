@@ -451,8 +451,8 @@ class MainWindow(ttk.Window if THEME else tk.Tk):
             self.status_var.set("Processing stopped")
 			
     def _process_document_async(self) -> None:
-        """Async document processing."""
-        try:
+	    """Async document processing."""
+	    try:
 	        self._log_message("=" * 50)
 	        self._log_message("▶ Starting document processing...")
 	        
@@ -489,48 +489,48 @@ class MainWindow(ttk.Window if THEME else tk.Tk):
 	            # Fetch verses with the correct translation
 	            self._update_status("Fetching verses from API...")
 	            verses = self._fetch_verses_async(placeholders, translation)
-
-                # Replace placeholders
-                self._update_status("Replacing placeholders...")
-                result = self.document_processor.replace_placeholders(doc, verses)
-                
-                self._update_stats("replaced", result.placeholders_replaced)
-                self._update_stats("failed", result.placeholders_failed)
-                
-                # Save document
-                self._update_status("Saving document...")
-                output_path = self.document_processor.generate_output_filename(
-                    self.selected_file
-                )
-                self.document_processor.save_document(doc, output_path)
-                
-                self._log_message(f"✓ Document saved: {output_path}")
-                self._log_message(f"✓ Replaced: {result.placeholders_replaced}/{result.placeholders_found}")
-                
-                # Success
-                self.after(0, lambda: messagebox.showinfo(
-                    "Success!",
-                    f"Document processed successfully!\n\n"
-                    f"Output: {output_path.name}\n"
-                    f"Replaced: {result.placeholders_replaced}/{result.placeholders_found}"
-                ))
-                
-        except Exception as e:
-            logger.error(f"Processing error: {e}", exc_info=True)
-            self._log_message(f"✗ ERROR: {e}")
-            
-            # FIXED: Proper error handling without lambda scope issue
-            error_message = f"An error occurred:\n\n{str(e)}"
-            self.after(0, lambda msg=error_message: messagebox.showerror(
-                "Processing Failed",
-                msg
-            ))
-            
-        finally:
-            self.is_processing = False
-            self.after(0, lambda: self.process_button.config(state=tk.NORMAL))
-            self.after(0, lambda: self.stop_button.config(state=tk.DISABLED))
-            self._update_status("Ready")
+	
+	            # Replace placeholders
+	            self._update_status("Replacing placeholders...")
+	            result = self.document_processor.replace_placeholders(doc, verses)
+	            
+	            self._update_stats("replaced", result.placeholders_replaced)
+	            self._update_stats("failed", result.placeholders_failed)
+	            
+	            # Save document
+	            self._update_status("Saving document...")
+	            output_path = self.document_processor.generate_output_filename(
+	                self.selected_file
+	            )
+	            self.document_processor.save_document(doc, output_path)
+	            
+	            self._log_message(f"✓ Document saved: {output_path}")
+	            self._log_message(f"✓ Replaced: {result.placeholders_replaced}/{result.placeholders_found}")
+	            
+	            # Success
+	            self.after(0, lambda: messagebox.showinfo(
+	                "Success!",
+	                f"Document processed successfully!\n\n"
+	                f"Output: {output_path.name}\n"
+	                f"Replaced: {result.placeholders_replaced}/{result.placeholders_found}"
+	            ))
+	            
+	    except Exception as e:
+	        logger.error(f"Processing error: {e}", exc_info=True)
+	        self._log_message(f"✗ ERROR: {e}")
+	        
+	        # FIXED: Proper error handling without lambda scope issue
+	        error_message = f"An error occurred:\n\n{str(e)}"
+	        self.after(0, lambda msg=error_message: messagebox.showerror(
+	            "Processing Failed",
+	            msg
+	        ))
+	        
+	    finally:
+	        self.is_processing = False
+	        self.after(0, lambda: self.process_button.config(state=tk.NORMAL))
+	        self.after(0, lambda: self.stop_button.config(state=tk.DISABLED))
+	        self._update_status("Ready")
     
     def _parse_translation(self, trans_text: str) -> TranslationType:
 	    """
