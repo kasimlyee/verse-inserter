@@ -450,9 +450,9 @@ class MainWindow(ttk.Window if THEME else tk.Tk):
             self._log_message("⚠ Processing stopped by user")
             self.status_var.set("Processing stopped")
 			
-	def _process_document_async(self) -> None:
-	    """Async document processing."""
-	    try:
+    def _process_document_async(self) -> None:
+        """Async document processing."""
+        try:
 	        self._log_message("=" * 50)
 	        self._log_message("▶ Starting document processing...")
 	        
@@ -489,8 +489,7 @@ class MainWindow(ttk.Window if THEME else tk.Tk):
 	            # Fetch verses with the correct translation
 	            self._update_status("Fetching verses from API...")
 	            verses = self._fetch_verses_async(placeholders, translation)
-            
-                
+
                 # Replace placeholders
                 self._update_status("Replacing placeholders...")
                 result = self.document_processor.replace_placeholders(doc, verses)
