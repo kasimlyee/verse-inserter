@@ -3,8 +3,8 @@ Main application window
 
 Author: Kasim Lyee <lyee@codewithlyee.com>
 Organization: Softlite Inc.
-License: Proprietary - All Rights Reserved
-"""
+License: MIT
+
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
@@ -652,6 +652,7 @@ class MainWindow(ttk.Window if THEME else tk.Tk):
         dialog = SettingsDialog(self, self.settings)
         self.wait_window(dialog)
         
+
         if dialog.result == "saved":
             logger.info("Settings updated")
     
@@ -679,6 +680,12 @@ Email: lyee@codewithlyee.com
 Phone: +256701521269
 """
         messagebox.showinfo("Help", help_text)
+=======
+        # If settings were saved, reload components
+        if dialog.result == "saved":
+            logger.info("Settings updated, reloading components")
+            # Reinitialize components with new settings if needed
+
     
     def _show_about(self) -> None:
         """Show about dialog."""
@@ -714,3 +721,8 @@ Organization: Softlite Inc.
             else:
                 self._log_message("⚠ Warning: No API key. Set it in Settings.")
                 self.status_bar_var.set("⚠ API key required")
+=======
+        """
+        
+        messagebox.showinfo("About VerseInserter", about_text.strip())
+
