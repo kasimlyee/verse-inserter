@@ -551,7 +551,7 @@ class SettingsDialog(ttk.Toplevel):
         # find the matching display name from TranslationType
         display_translation = current_trans
         for trans_type in TranslationType:
-            if current_trans in trans_type.display_name or current_trans == trans_type.value:
+            if current_trans and (str(current_trans) in trans_type.display_name or str(current_trans) == trans_type.value):
                 display_translation = trans_type.display_name
                 break
         

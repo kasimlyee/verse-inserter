@@ -6,19 +6,43 @@ Company: Softlite Inc.
 License: MIT
 """
 
+from __future__ import annotations
+
 import aiohttp
 from typing import Optional
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from ..models.verse import Verse, VerseReference, TranslationType
 from ..utils.logger import get_logger
-from .api_exceptions import APIError, APIRateLimitError as RateLimitError, APIAuthenticationError as AuthenticationError
+from .api_exceptions import (
+    APIError, 
+    APIRateLimitError as RateLimitError, 
+    APIAuthenticationError as AuthenticationError
+)
 
 logger = get_logger(__name__)
 
 
 class BibleAPIClient:
-    """Async client for API.Bible service."""
+    """
+    Async client for API.Bible service.
+    
+    Provides asynchronous scripture fetching with automatic retry logic,
+    error handling, and integration with the Verse data models.
+    
+    Features:
+        - Async/await support for concurrent verse fetching
+        - Automatic retry with exponential backoff
+        - Comprehensive error handling
+        - Full integration with VerseReference and Verse models
+        - Support for verse ranges
+    
+    Example:
+        >>> async with BibleAPIClient(api_key="your-key") as client:
+        ...     ref = VerseReference.parse("John 3:16", TranslationType.NIV)
+        ...     verse = await client.fetch_verse(ref)
+        ...     print(verse.formatted_text)
+    """
     
     BASE_URL = "https://api.scripture.api.bible"
     
@@ -27,22 +51,48 @@ class BibleAPIClient:
         Initialize API client.
         
         Args:
-            api_key: API.Bible authentication key
+            api_key: API.Bible authentication key (get from https://scripture.api.bible)
+        
+        Raises:
+            ValueError: If api_key is empty or invalid
         """
-        self.api_key = api_key
+        if not api_key or not api_key.strip():
+            raise ValueError("API key cannot be empty")
+        
+        self.api_key = api_key.strip()
         self.session: Optional[aiohttp.ClientSession] = None
+        
+        logger.info("BibleAPIClient initialized")
     
-    async def __aenter__(self):
-        """Async context manager entry."""
+    async def __aenter__(self) -> BibleAPIClient:
+        """
+        Async context manager entry.
+        
+        Returns:
+            Self for context manager usage
+        """
         self.session = aiohttp.ClientSession(
-            headers={"api-key": self.api_key}
+            headers={
+                "api-key": self.api_key,
+                "accept": "application/json"
+            }
         )
+        logger.debug("API session created")
         return self
     
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit."""
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """
+        Async context manager exit with cleanup.
+        
+        Args:
+            exc_type: Exception type if any
+            exc_val: Exception value if any
+            exc_tb: Exception traceback if any
+        """
         if self.session:
             await self.session.close()
+            self.session = None
+            logger.debug("API session closed")
     
     @retry(
         stop=stop_after_attempt(3),
@@ -50,91 +100,171 @@ class BibleAPIClient:
     )
     async def fetch_verse(self, reference: VerseReference) -> Verse:
         """
-        Fetch verse text from API.
+        Fetch verse text from API.Bible.
+        
+        Automatically retries on failure with exponential backoff.
+        Integrates seamlessly with VerseReference and returns typed Verse object.
         
         Args:
-            reference: Verse reference to fetch
+            reference: VerseReference object with book, chapter, and verse details
             
         Returns:
-            Verse object with text
+            Verse object with fetched text and metadata
             
         Raises:
-            APIError: On API errors
-            RateLimitError: On rate limit exceeded
-            AuthenticationError: On auth failures
+            RuntimeError: If client not initialized with context manager
+            AuthenticationError: If API key is invalid (401)
+            RateLimitError: If rate limit exceeded (429)
+            APIError: For other API errors
+            
+        Example:
+            >>> ref = VerseReference.parse("John 3:16")
+            >>> verse = await client.fetch_verse(ref)
+            >>> print(verse.text)
         """
         if not self.session:
-            raise RuntimeError("Client not initialized. Use async context manager.")
+            raise RuntimeError(
+                "Client not initialized. Use async context manager:\n"
+                "  async with BibleAPIClient(api_key) as client:\n"
+                "      verse = await client.fetch_verse(reference)"
+            )
         
-        bible_id = reference.translation.bible_id
+        # Get Bible ID from translation enum
+        bible_id = reference.translation.value
+        
+        # Format verse ID for API
         verse_id = self._format_verse_id(reference)
+        
+        # Build API URL
         url = f"{self.BASE_URL}/v1/bibles/{bible_id}/verses/{verse_id}"
+        
+        logger.debug(f"Fetching verse: {reference.canonical_reference} from {url}")
         
         try:
             async with self.session.get(
                 url,
-                params={"content-type": "text"}
+                params={
+                    "content-type": "text",
+                    "include-notes": "false",
+                    "include-titles": "false",
+                    "include-chapter-numbers": "false",
+                    "include-verse-numbers": "false"
+                }
             ) as response:
+                # Handle different response statuses
                 if response.status == 200:
                     data = await response.json()
                     verse_text = data["data"]["content"].strip()
                     
-                    logger.info(f"Fetched verse: {reference.canonical_reference}")
+                    # Clean HTML tags if present
+                    verse_text = self._clean_verse_text(verse_text)
                     
+                    logger.info(
+                        f"Successfully fetched: {reference.canonical_reference} "
+                        f"({len(verse_text)} chars)"
+                    )
+                    
+                    # Return Verse object
                     return Verse(
                         reference=reference,
                         text=verse_text,
                         translation=reference.translation,
-                        verse_id=verse_id
+                        source_api="api.scripture.api.bible"
                     )
+                
                 elif response.status == 401:
-                    raise AuthenticationError("Invalid API key")
+                    error_data = await response.json()
+                    error_msg = error_data.get("message", "Invalid API key")
+                    logger.error(f"Authentication failed: {error_msg}")
+                    raise AuthenticationError(
+                        f"Invalid API key. Get one at https://scripture.api.bible"
+                    )
+                
                 elif response.status == 429:
-                    raise RateLimitError("API rate limit exceeded")
+                    logger.warning("Rate limit exceeded")
+                    raise RateLimitError(
+                        "API rate limit exceeded. Please wait before retrying."
+                    )
+                
+                elif response.status == 404:
+                    error_data = await response.json()
+                    error_msg = error_data.get("message", "Verse not found")
+                    logger.error(f"Verse not found: {reference.canonical_reference}")
+                    raise APIError(
+                        f"Verse not found: {reference.canonical_reference}. "
+                        f"Error: {error_msg}"
+                    )
+                
                 else:
                     error_text = await response.text()
+                    logger.error(
+                        f"API error {response.status} for "
+                        f"{reference.canonical_reference}: {error_text}"
+                    )
                     raise APIError(
                         f"API error {response.status}: {error_text}"
                     )
         
         except aiohttp.ClientError as e:
-            logger.error(f"Network error fetching {reference.canonical_reference}: {e}")
-            raise APIError(f"Network error: {e}")
+            logger.error(
+                f"Network error fetching {reference.canonical_reference}: {e}"
+            )
+            raise APIError(f"Network error: {e}") from e
     
     def _format_verse_id(self, reference: VerseReference) -> str:
         """
-        Format verse reference for API.
+        Format verse reference for API.Bible endpoint.
+        
+        Converts VerseReference to API-compatible format:
+        - Single verse: "JHN.3.16"
+        - Verse range: "JHN.3.16-JHN.3.18"
         
         Args:
-            reference: Verse reference
+            reference: VerseReference object to format
             
         Returns:
-            API-compatible verse ID
+            API-compatible verse ID string
+            
+        Example:
+            >>> ref = VerseReference(book="John", chapter=3, start_verse=16)
+            >>> client._format_verse_id(ref)
+            'JHN.3.16'
         """
         book_abbrev = self._get_book_abbreviation(reference.book)
         
-        if reference.verse_end and reference.verse_end != reference.verse_start:
+        # Handle verse ranges
+        if reference.end_verse and reference.end_verse != reference.start_verse:
             return (
-                f"{book_abbrev}.{reference.chapter}."
-                f"{reference.verse_start}-"
-                f"{book_abbrev}.{reference.chapter}."
-                f"{reference.verse_end}"
+                f"{book_abbrev}.{reference.chapter}.{reference.start_verse}-"
+                f"{book_abbrev}.{reference.chapter}.{reference.end_verse}"
             )
-        return f"{book_abbrev}.{reference.chapter}.{reference.verse_start}"
+        
+        # Single verse
+        return f"{book_abbrev}.{reference.chapter}.{reference.start_verse}"
     
     def _get_book_abbreviation(self, book_name: str) -> str:
         """
-        Get standardized book abbreviation.
+        Get standardized three-letter book abbreviation for API.
+        
+        Maps full book names and common abbreviations to API.Bible standard codes.
         
         Args:
-            book_name: Full or partial book name
+            book_name: Full or partial book name (e.g., "John", "1 Corinthians")
             
         Returns:
-            Standard book abbreviation
+            Standard three-letter abbreviation (e.g., "JHN", "1CO")
+            
+        Example:
+            >>> client._get_book_abbreviation("John")
+            'JHN'
+            >>> client._get_book_abbreviation("1 Corinthians")
+            '1CO'
         """
+        # Comprehensive book name to abbreviation mapping
         book_map = {
+            # Old Testament
             "genesis": "GEN", "gen": "GEN",
-            "exodus": "EXO", "exo": "EXO",
+            "exodus": "EXO", "exo": "EXO", "exod": "EXO",
             "leviticus": "LEV", "lev": "LEV",
             "numbers": "NUM", "num": "NUM",
             "deuteronomy": "DEU", "deu": "DEU", "deut": "DEU",
@@ -143,22 +273,22 @@ class BibleAPIClient:
             "ruth": "RUT",
             "1 samuel": "1SA", "1sam": "1SA", "1 sam": "1SA",
             "2 samuel": "2SA", "2sam": "2SA", "2 sam": "2SA",
-            "1 kings": "1KI", "1ki": "1KI",
-            "2 kings": "2KI", "2ki": "2KI",
-            "1 chronicles": "1CH", "1chr": "1CH",
-            "2 chronicles": "2CH", "2chr": "2CH",
+            "1 kings": "1KI", "1ki": "1KI", "1 kin": "1KI",
+            "2 kings": "2KI", "2ki": "2KI", "2 kin": "2KI",
+            "1 chronicles": "1CH", "1chr": "1CH", "1 chr": "1CH",
+            "2 chronicles": "2CH", "2chr": "2CH", "2 chr": "2CH",
             "ezra": "EZR",
             "nehemiah": "NEH", "neh": "NEH",
             "esther": "EST",
             "job": "JOB",
-            "psalm": "PSA", "psalms": "PSA", "ps": "PSA",
+            "psalm": "PSA", "psalms": "PSA", "ps": "PSA", "psa": "PSA",
             "proverbs": "PRO", "prov": "PRO",
             "ecclesiastes": "ECC", "eccl": "ECC",
-            "song of solomon": "SNG", "song": "SNG",
+            "song of solomon": "SNG", "song": "SNG", "sos": "SNG",
             "isaiah": "ISA", "isa": "ISA",
             "jeremiah": "JER", "jer": "JER",
             "lamentations": "LAM", "lam": "LAM",
-            "ezekiel": "EZK", "ezek": "EZK",
+            "ezekiel": "EZK", "ezek": "EZK", "eze": "EZK",
             "daniel": "DAN", "dan": "DAN",
             "hosea": "HOS", "hos": "HOS",
             "joel": "JOL",
@@ -172,6 +302,8 @@ class BibleAPIClient:
             "haggai": "HAG", "hag": "HAG",
             "zechariah": "ZEC", "zech": "ZEC",
             "malachi": "MAL", "mal": "MAL",
+            
+            # New Testament
             "matthew": "MAT", "matt": "MAT", "mt": "MAT",
             "mark": "MRK", "mk": "MRK",
             "luke": "LUK", "lk": "LUK",
@@ -201,5 +333,35 @@ class BibleAPIClient:
             "revelation": "REV", "rev": "REV",
         }
         
-        book_lower = book_name.lower().strip()
-        return book_map.get(book_lower, book_name.upper())
+        # Normalize book name: lowercase, strip whitespace, remove periods
+        book_lower = book_name.lower().strip().replace(".", "")
+        
+        # Return mapped abbreviation or fallback to first 3 chars uppercase
+        return book_map.get(book_lower, book_name.upper()[:3])
+    
+    def _clean_verse_text(self, text: str) -> str:
+        """
+        Clean verse text by removing HTML tags and normalizing whitespace.
+        
+        Args:
+            text: Raw verse text from API (may contain HTML)
+            
+        Returns:
+            Cleaned text with HTML removed and whitespace normalized
+            
+        Example:
+            >>> client._clean_verse_text("<p>For God so loved</p>  the world")
+            'For God so loved the world'
+        """
+        import re
+        
+        # Remove HTML tags
+        text = re.sub(r'<[^>]+>', '', text)
+        
+        # Normalize whitespace
+        text = re.sub(r'\s+', ' ', text)
+        
+        # Remove leading/trailing whitespace
+        return text.strip()
+
+
