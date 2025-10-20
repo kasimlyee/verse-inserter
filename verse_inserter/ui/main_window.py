@@ -450,38 +450,46 @@ class MainWindow(ttk.Window if THEME else tk.Tk):
             self._log_message("⚠ Processing stopped by user")
             self.status_var.set("Processing stopped")
     
-    def _process_document_async(self) -> None:
-        """Async document processing."""
-        try:
-            self._log_message("=" * 50)
-            self._log_message("▶ Starting document processing...")
+	def _process_document_async(self) -> None:
+	    """Async document processing."""
+	    try:
+	        self._log_message("=" * 50)
+	        self._log_message("▶ Starting document processing...")
+	        
+	        # Get selected translation
+	        trans_text = self.translation_var.get()
+	        translation = self._parse_translation(trans_text)
+	        self._log_message(f"📖 Using translation: {translation.display_name}")
+	        
+	        # Load document
+	        self._update_status("Loading document...")
+	        with self.document_processor.load_document(self.selected_file) as doc:
+	            # Find placeholders - MAKE SURE THEY USE THE SELECTED TRANSLATION
+	            self._update_status("Scanning for placeholders...")
+	            self.document_processor.set_progress_callback(self._progress_callback)
+	            
+	            # Ensure placeholders are parsed with the correct translation
+	            placeholders = self.document_processor.find_all_placeholders(doc)
+	            
+	            # Update placeholders to use selected translation
+	            for placeholder in placeholders:
+	                placeholder.reference.translation = translation
+	            
+	            if not placeholders:
+	                self.after(0, lambda: messagebox.showinfo(
+	                    "No Placeholders",
+	                    "No scripture placeholders found in document."
+	                ))
+	                return
+	            
+	            self._update_stats("found", len(placeholders))
+	            self._log_message(f"✓ Found {len(placeholders)} placeholders")
+	            self._log_message(f"✓ Translation: {translation.display_name}")
+	            
+	            # Fetch verses with the correct translation
+	            self._update_status("Fetching verses from API...")
+	            verses = self._fetch_verses_async(placeholders, translation)
             
-            # FIXED: Safe translation parsing
-            trans_text = self.translation_var.get()
-            translation = self._parse_translation(trans_text)
-            
-            # Load document
-            self._update_status("Loading document...")
-            with self.document_processor.load_document(self.selected_file) as doc:
-                # Find placeholders
-                self._update_status("Scanning for placeholders...")
-                self.document_processor.set_progress_callback(self._progress_callback)
-                
-                placeholders = self.document_processor.find_all_placeholders(doc)
-                
-                if not placeholders:
-                    self.after(0, lambda: messagebox.showinfo(
-                        "No Placeholders",
-                        "No scripture placeholders found in document."
-                    ))
-                    return
-                
-                self._update_stats("found", len(placeholders))
-                self._log_message(f"✓ Found {len(placeholders)} placeholders")
-                
-                # Fetch verses
-                self._update_status("Fetching verses from API...")
-                verses = self._fetch_verses_async(placeholders, translation)
                 
                 # Replace placeholders
                 self._update_status("Replacing placeholders...")
@@ -526,49 +534,38 @@ class MainWindow(ttk.Window if THEME else tk.Tk):
             self._update_status("Ready")
     
     def _parse_translation(self, trans_text: str) -> TranslationType:
-        """
-        Safely parse translation text to extract TranslationType.
-        
-        Handles multiple formats:
-        - "KJV (King James Version)" -> TranslationType.KJV
-        - "KJV" -> TranslationType.KJV
-        - Full display names -> appropriate TranslationType
-        
-        Args:
-            trans_text: The translation text from the UI
-            
-        Returns:
-            TranslationType enum value
-        """
-        # Method 1: Try to extract from parentheses
-        if "(" in trans_text and ")" in trans_text:
-            try:
-                # Extract text between parentheses
-                code = trans_text.split("(")[1].split(")")[0].strip()
-                if code and hasattr(TranslationType, code):
-                    return getattr(TranslationType, code)
-            except (IndexError, AttributeError):
-                pass
-        
-        # Method 2: Try to match with TranslationType display names
-        for trans_type in TranslationType:
-            if trans_text == trans_type.display_name:
-                return trans_type
-            if trans_text in trans_type.display_name:
-                return trans_type
-        
-        # Method 3: Try direct lookup by name
-        try:
-            # Remove spaces and try direct lookup
-            direct_name = trans_text.replace(" ", "").replace("(", "").replace(")", "")
-            if hasattr(TranslationType, direct_name):
-                return getattr(TranslationType, direct_name)
-        except (AttributeError, TypeError):
-            pass
-        
-        # Method 4: Fallback to default
-        logger.warning(f"Could not parse translation: {trans_text}, using default")
-        return TranslationType.KJV
+	    """
+	    Parse translation text to TranslationType enum.
+	    
+	    Args:
+	        trans_text: Translation text from UI combobox
+	        
+	    Returns:
+	        TranslationType enum value
+	    """
+	    try:
+	        # Use the built-in enum method first
+	        return TranslationType.from_display_name(trans_text)
+	    except ValueError:
+	        # Fallback: try direct enum lookup
+	        try:
+	            # Extract code from parentheses if present
+	            if "(" in trans_text and ")" in trans_text:
+	                code = trans_text.split("(")[1].split(")")[0].strip()
+	                if code in TranslationType.__members__:
+	                    return TranslationType[code]
+	            
+	            # Try direct name lookup
+	            clean_name = trans_text.upper().replace(" ", "").replace("(", "").replace(")", "")
+	            if clean_name in TranslationType.__members__:
+	                return TranslationType[clean_name]
+	                
+	        except (KeyError, AttributeError):
+	            pass
+	            
+	    # Ultimate fallback
+	    logger.warning(f"Could not parse translation: {trans_text}, using KJV")
+	    return TranslationType.KJV
     
     def _fetch_verses_async(self, placeholders, translation):
         """Fetch verses using API."""
