@@ -523,3 +523,115 @@ class PlaceholderParser:
         """
         unique_refs = self.extract_unique_references(placeholders)
         return len(unique_refs)
+
+	def parse_text_with_translation(
+	    self,
+	    text: str,
+	    paragraph_index: int = 0,
+	    position_offset: int = 0,
+	    translation: TranslationType = None
+	) -> List[Placeholder]:
+	    """
+	    Extract and parse all placeholders from a text segment with specified translation.
+	    
+	    Args:
+	        text: Text content to parse for placeholders
+	        paragraph_index: Index of the paragraph in the document
+	        position_offset: Character offset for absolute positioning
+	        translation: Bible translation to use
+	        
+	    Returns:
+	        List of validated Placeholder objects with specified translation
+	    """
+	    if translation is None:
+	        translation = self.default_translation
+	    
+	    placeholders: List[Placeholder] = []
+	    seen_references: Set[str] = set()
+	    
+	    # Primary pattern matching
+	    for match in self.PLACEHOLDER_PATTERN.finditer(text):
+	        placeholder = self._create_placeholder_from_match_with_translation(
+	            match, paragraph_index, position_offset, translation
+	        )
+	        
+	        if placeholder:
+	            # Track duplicates
+	            ref_key = placeholder.unique_key
+	            if ref_key in seen_references:
+	                self._stats.duplicate_count += 1
+	            else:
+	                seen_references.add(ref_key)
+	                placeholders.append(placeholder)
+	                self._stats.books_referenced.add(placeholder.reference.book)
+	    
+	    # Alternative pattern matching if enabled
+	    if self.enable_alternative_formats:
+	        for pattern in self.ALTERNATIVE_PATTERNS:
+	            for match in pattern.finditer(text):
+	                placeholder = self._create_placeholder_from_match_with_translation(
+	                    match, paragraph_index, position_offset, translation
+	                )
+	                
+	                if placeholder:
+	                    ref_key = placeholder.unique_key
+	                    if ref_key not in seen_references:
+	                        seen_references.add(ref_key)
+	                        placeholders.append(placeholder)
+	                        self._stats.books_referenced.add(placeholder.reference.book)
+	    
+	    # Update statistics
+	    self._stats.total_found += len(placeholders)
+	    self._stats.unique_references = len(seen_references)
+	    
+	    # Sort by position for sequential processing
+	    placeholders.sort(key=lambda p: p.position)
+	    
+	    logger.debug(
+	        f"Parsed {len(placeholders)} placeholders from text with translation {translation.name}"
+	    )
+	    
+	    return placeholders
+	
+	def _create_placeholder_from_match_with_translation(
+	    self,
+	    match: re.Match,
+	    paragraph_index: int,
+	    position_offset: int,
+	    translation: TranslationType
+	) -> Optional[Placeholder]:
+	    """
+	    Create a validated Placeholder object from a regex match with specified translation.
+	    """
+	    try:
+	        book, chapter, start_verse, end_verse = match.groups()
+	        
+	        # Normalize book name
+	        if self.normalize_whitespace:
+	            book = " ".join(book.split())
+	        
+	        # Create verse reference with the specified translation
+	        reference = VerseReference(
+	            book=book.strip(),
+	            chapter=int(chapter),
+	            start_verse=int(start_verse),
+	            end_verse=int(end_verse) if end_verse else None,
+	            translation=translation,  # Use the specified translation
+	        )
+	        
+	        # Create placeholder
+	        placeholder = Placeholder(
+	            reference=reference,
+	            raw_text=match.group(0),
+	            paragraph_index=paragraph_index,
+	            position=match.start() + position_offset,
+	        )
+	        
+	        return placeholder
+	        
+	    except (ValueError, TypeError) as e:
+	        self._stats.invalid_count += 1
+	        logger.warning(
+	            f"Failed to parse placeholder '{match.group(0)}': {e}"
+	        )
+	        return None
