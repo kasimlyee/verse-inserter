@@ -368,48 +368,58 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
         logger.warning(f"Could not parse translation: {trans_text}, using KJV")
         return TranslationType.KJV
 
-    def _fetch_verses_async(self, placeholders: Iterable[Any], translation: TranslationType) -> Dict[str, Any]:
-        """Fetch verses from API (synchronously runs an async loop)."""
+   def _fetch_verses_async(self, placeholders: Iterable[Any], translation: TranslationType) -> Dict[str, Any]:
+        """Fetch verses from API with fallback support."""
         verses_dict: Dict[str, Any] = {}
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-
+    
         try:
-
             async def fetch_all() -> None:
                 async with BibleAPIClient(self.settings.api_key) as client:
                     unique_refs = self.placeholder_parser.extract_unique_references(placeholders)
                     total = len(unique_refs) or 1
-                    self._log_message(f"📡 Fetching {len(unique_refs)} unique verses from API...")
+                    
+                    self._log_message(f"📡 Fetching {len(unique_refs)} verses (with fallback)...")
+                    
                     for idx, ref in enumerate(unique_refs):
                         if not self.is_processing:
                             break
-                        # check cache first
+                        
+                        # Check cache first
                         cached = self.cache_manager.get(ref)
                         if cached:
                             verses_dict[ref.canonical_reference] = cached
                             self._log_message(f"💾 Cache hit: {ref.canonical_reference}")
                         else:
                             try:
-                                self._log_message(f"⬇️ Fetching: {ref.canonical_reference} ({ref.translation.display_name})")
-                                verse = await client.fetch_verse(ref)
+                                self._log_message(f"⬇️ Fetching: {ref.canonical_reference}")
+                                
+                                # Use the new method with automatic fallback
+                                verse = await client.fetch_verse_with_fallback(ref)
+                                
                                 if verse and getattr(verse, "text", None):
                                     verses_dict[ref.canonical_reference] = verse
                                     self.cache_manager.set(ref, verse)
-                                    self._log_message(f"✅ Fetched: {ref.canonical_reference}")
+                                    
+                                    # Indicate if we used fallback
+                                    source = "free API" if "fallback" in getattr(verse, "source_api", "") else "API.Bible"
+                                    self._log_message(f"✅ Fetched via {source}: {ref.canonical_reference}")
                                 else:
-                                    self._log_message(f"❌ Empty response for: {ref.canonical_reference}")
+                                    self._log_message(f"❌ Both APIs failed for: {ref.canonical_reference}")
+                                    
                             except Exception as e:
-                                error_msg = f"❌ Failed to fetch {ref.canonical_reference}: {str(e)}"
+                                error_msg = f"❌ Complete failure for {ref.canonical_reference}: {str(e)}"
                                 self._log_message(error_msg)
                                 logger.error(error_msg)
-
+    
+                        # Update progress
                         progress = (idx + 1) / total * 50 + 50
-                        # avoid late-binding issues by passing values as defaults
                         self.after(0, lambda p=progress: self.progress_var.set(p))
                         self.after(0, lambda i=idx, t=total: self.status_var.set(f"Fetching verses... {i + 1}/{t}"))
-
+    
             loop.run_until_complete(fetch_all())
+            
         except Exception as e:
             logger.exception("API fetch error")
             self._log_message(f"❌ API fetch error: {e}")
@@ -418,8 +428,9 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
                 loop.close()
             except Exception:
                 pass
-
-        self._log_message(f"📊 Fetched {len(verses_dict)} verses successfully")
+    
+        success_count = len([v for v in verses_dict.values() if v and getattr(v, 'text', None)])
+        self._log_message(f"📊 Successfully retrieved {success_count}/{len(unique_refs)} verses")
         return verses_dict
 
     def _progress_callback(self, current: int, total: int, message: str) -> None:
