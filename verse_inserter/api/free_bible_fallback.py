@@ -9,6 +9,7 @@ License: MIT
 import aiohttp
 import re
 from typing import Optional
+from urllib.parse import quote
 from ..models.verse import Verse, VerseReference, TranslationType
 from ..utils.logger import get_logger
 
@@ -57,17 +58,17 @@ class FreeBibleFallback:
             Verse object if successful, None if failed
         """
         try:
-            # Get free API translation code
             free_translation = self.TRANSLATION_MAP.get(reference.translation, "niv")
             
             # Format reference for free API: John+3:16 or Psalm+23:1-3
-            api_reference = f"{reference.book}+{reference.chapter}:{reference.start_verse}"
+            api_reference = f"{reference.book} {reference.chapter}:{reference.start_verse}"
             if reference.end_verse:
                 api_reference += f"-{reference.end_verse}"
             
-            url = f"{self.BASE_URL}/{api_reference}?translation={free_translation}"
+            # URL encode the reference (spaces become %20 or +)
+            api_reference = quote(api_reference, safe='')
             
-            logger.debug(f"Free fallback fetching: {reference.canonical_reference}")
+            url = f"{self.BASE_URL}/{api_reference}?translation={free_translation}"
             
             async with self.session.get(url, timeout=30) as response:
                 if response.status == 200:
