@@ -272,6 +272,100 @@ class PlaceholderParser:
                 f"Failed to parse placeholder '{match.group(0)}': {e}"
             )
             return None
+
+	def parse_placeholder(
+	    self, 
+	    text: str, 
+	    translation: TranslationType = None
+	) -> Optional[Placeholder]:
+	    """
+	    Parse a single placeholder text with specified translation.
+	    
+	    Args:
+	        text: The raw placeholder text (e.g., "{{John 3:16}}")
+	        translation: Bible translation to use (defaults to instance default)
+	        
+	    Returns:
+	        Placeholder object or None if parsing fails
+	    """
+	    if translation is None:
+	        translation = self.default_translation
+	    
+	    try:
+	        # Extract reference from placeholder (e.g., "{{John 3:16}}" -> "John 3:16")
+	        reference_text = self._extract_reference(text)
+	        if reference_text:
+	            reference = VerseReference.parse(reference_text, translation=translation)
+	            return Placeholder(
+	                raw_text=text,
+	                reference=reference,
+	                position=0,  # Will be set properly in parse_text
+	                paragraph_index=0  # Will be set properly in parse_text
+	            )
+	            
+	    except Exception as e:
+	        logger.warning(f"Failed to parse placeholder '{text}': {e}")
+	    
+	    return None
+
+	def parse_multiple(
+	    self, 
+	    placeholder_texts: List[str], 
+	    translation: TranslationType = None
+	) -> List[Placeholder]:
+	    """
+	    Parse multiple placeholder texts with specified translation.
+	    
+	    Args:
+	        placeholder_texts: List of raw placeholder texts
+	        translation: Bible translation to use (defaults to instance default)
+	        
+	    Returns:
+	        List of successfully parsed Placeholder objects
+	    """
+	    if translation is None:
+	        translation = self.default_translation
+	    
+	    placeholders = []
+	    for text in placeholder_texts:
+	        placeholder = self.parse_placeholder(text, translation)
+	        if placeholder:
+	            placeholders.append(placeholder)
+	    return placeholders
+
+	def _extract_reference(self, placeholder_text: str) -> Optional[str]:
+	    """
+	    Extract scripture reference from placeholder text.
+	    
+	    Args:
+	        placeholder_text: Raw placeholder (e.g., "{{John 3:16}}")
+	        
+	    Returns:
+	        Extracted reference or None
+	    """
+	    # Try the main pattern first
+	    match = self.PLACEHOLDER_PATTERN.match(placeholder_text.strip())
+	    if match:
+	        book, chapter, start_verse, end_verse = match.groups()
+	        
+	        # Reconstruct the reference without the brackets
+	        reference = f"{book} {chapter}:{start_verse}"
+	        if end_verse:
+	            reference += f"-{end_verse}"
+	        return reference
+	    
+	    # Try alternative patterns
+	    if self.enable_alternative_formats:
+	        for pattern in self.ALTERNATIVE_PATTERNS:
+	            match = pattern.match(placeholder_text.strip())
+	            if match:
+	                book, chapter, start_verse, end_verse = match.groups()
+	                reference = f"{book} {chapter}:{start_verse}"
+	                if end_verse:
+	                    reference += f"-{end_verse}"
+	                return reference
+	    
+	    return None
     
     def parse_multiple_paragraphs(
         self,
