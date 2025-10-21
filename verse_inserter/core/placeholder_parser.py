@@ -249,12 +249,12 @@ class PlaceholderParser:
             
             # Create verse reference
             reference = VerseReference(
-    		book=book.strip(),
-    		chapter=int(chapter),
-    		start_verse=int(start_verse),      # ✅ CORRECT FIELD NAME
-    		end_verse=int(end_verse) if end_verse else None,  # ✅ CORRECT FIELD NAME
-    		translation=self.default_translation,
-	    )
+                book=book.strip(),
+                chapter=int(chapter),
+                start_verse=int(start_verse),
+                end_verse=int(end_verse) if end_verse else None,
+                translation=self.default_translation,
+            )
             
             # Create placeholder
             placeholder = Placeholder(
@@ -272,100 +272,100 @@ class PlaceholderParser:
                 f"Failed to parse placeholder '{match.group(0)}': {e}"
             )
             return None
-			
-	def parse_placeholder(
-	    self, 
-	    text: str, 
-	    translation: TranslationType = None
-	) -> Optional[Placeholder]:
-	    """
-	    Parse a single placeholder text with specified translation.
-	    
-	    Args:
-	        text: The raw placeholder text (e.g., "{{John 3:16}}")
-	        translation: Bible translation to use (defaults to instance default)
-	        
-	    Returns:
-	        Placeholder object or None if parsing fails
-	    """
-	    if translation is None:
-	        translation = self.default_translation
-	    
-	    try:
-	        # Extract reference from placeholder (e.g., "{{John 3:16}}" -> "John 3:16")
-	        reference_text = self._extract_reference(text)
-	        if reference_text:
-	            reference = VerseReference.parse(reference_text, translation=translation)
-	            return Placeholder(
-	                raw_text=text,
-	                reference=reference,
-	                position=0,  # Will be set properly in parse_text
-	                paragraph_index=0  # Will be set properly in parse_text
-	            )
-	            
-	    except Exception as e:
-	        logger.warning(f"Failed to parse placeholder '{text}': {e}")
-	    
-	    return None
 
-	def parse_multiple(
-	    self, 
-	    placeholder_texts: List[str], 
-	    translation: TranslationType = None
-	) -> List[Placeholder]:
-	    """
-	    Parse multiple placeholder texts with specified translation.
-	    
-	    Args:
-	        placeholder_texts: List of raw placeholder texts
-	        translation: Bible translation to use (defaults to instance default)
-	        
-	    Returns:
-	        List of successfully parsed Placeholder objects
-	    """
-	    if translation is None:
-	        translation = self.default_translation
-	    
-	    placeholders = []
-	    for text in placeholder_texts:
-	        placeholder = self.parse_placeholder(text, translation)
-	        if placeholder:
-	            placeholders.append(placeholder)
-	    return placeholders
+    def parse_placeholder(
+        self, 
+        text: str, 
+        translation: Optional[TranslationType] = None
+    ) -> Optional[Placeholder]:
+        """
+        Parse a single placeholder text with specified translation.
+        
+        Args:
+            text: The raw placeholder text (e.g., "{{John 3:16}}")
+            translation: Bible translation to use (defaults to instance default)
+            
+        Returns:
+            Placeholder object or None if parsing fails
+        """
+        if translation is None:
+            translation = self.default_translation
+        
+        try:
+            # Extract reference from placeholder (e.g., "{{John 3:16}}" -> "John 3:16")
+            reference_text = self._extract_reference(text)
+            if reference_text:
+                reference = VerseReference.parse(reference_text, translation=translation)
+                return Placeholder(
+                    raw_text=text,
+                    reference=reference,
+                    position=0,  # Will be set properly in parse_text
+                    paragraph_index=0  # Will be set properly in parse_text
+                )
+                
+        except Exception as e:
+            logger.warning(f"Failed to parse placeholder '{text}': {e}")
+        
+        return None
 
-	def _extract_reference(self, placeholder_text: str) -> Optional[str]:
-	    """
-	    Extract scripture reference from placeholder text.
-	    
-	    Args:
-	        placeholder_text: Raw placeholder (e.g., "{{John 3:16}}")
-	        
-	    Returns:
-	        Extracted reference or None
-	    """
-	    # Try the main pattern first
-	    match = self.PLACEHOLDER_PATTERN.match(placeholder_text.strip())
-	    if match:
-	        book, chapter, start_verse, end_verse = match.groups()
-	        
-	        # Reconstruct the reference without the brackets
-	        reference = f"{book} {chapter}:{start_verse}"
-	        if end_verse:
-	            reference += f"-{end_verse}"
-	        return reference
-	    
-	    # Try alternative patterns
-	    if self.enable_alternative_formats:
-	        for pattern in self.ALTERNATIVE_PATTERNS:
-	            match = pattern.match(placeholder_text.strip())
-	            if match:
-	                book, chapter, start_verse, end_verse = match.groups()
-	                reference = f"{book} {chapter}:{start_verse}"
-	                if end_verse:
-	                    reference += f"-{end_verse}"
-	                return reference
-	    
-	    return None
+    def parse_multiple(
+        self, 
+        placeholder_texts: List[str], 
+        translation: Optional[TranslationType] = None
+    ) -> List[Placeholder]:
+        """
+        Parse multiple placeholder texts with specified translation.
+        
+        Args:
+            placeholder_texts: List of raw placeholder texts
+            translation: Bible translation to use (defaults to instance default)
+            
+        Returns:
+            List of successfully parsed Placeholder objects
+        """
+        if translation is None:
+            translation = self.default_translation
+        
+        placeholders = []
+        for text in placeholder_texts:
+            placeholder = self.parse_placeholder(text, translation)
+            if placeholder:
+                placeholders.append(placeholder)
+        return placeholders
+
+    def _extract_reference(self, placeholder_text: str) -> Optional[str]:
+        """
+        Extract scripture reference from placeholder text.
+        
+        Args:
+            placeholder_text: Raw placeholder (e.g., "{{John 3:16}}")
+            
+        Returns:
+            Extracted reference or None
+        """
+        # Try the main pattern first
+        match = self.PLACEHOLDER_PATTERN.match(placeholder_text.strip())
+        if match:
+            book, chapter, start_verse, end_verse = match.groups()
+            
+            # Reconstruct the reference without the brackets
+            reference = f"{book} {chapter}:{start_verse}"
+            if end_verse:
+                reference += f"-{end_verse}"
+            return reference
+        
+        # Try alternative patterns
+        if self.enable_alternative_formats:
+            for pattern in self.ALTERNATIVE_PATTERNS:
+                match = pattern.match(placeholder_text.strip())
+                if match:
+                    book, chapter, start_verse, end_verse = match.groups()
+                    reference = f"{book} {chapter}:{start_verse}"
+                    if end_verse:
+                        reference += f"-{end_verse}"
+                    return reference
+        
+        return None
     
     def parse_multiple_paragraphs(
         self,
@@ -524,114 +524,114 @@ class PlaceholderParser:
         unique_refs = self.extract_unique_references(placeholders)
         return len(unique_refs)
 
-	def parse_text_with_translation(
-	    self,
-	    text: str,
-	    paragraph_index: int = 0,
-	    position_offset: int = 0,
-	    translation: TranslationType = None
-	) -> List[Placeholder]:
-	    """
-	    Extract and parse all placeholders from a text segment with specified translation.
-	    
-	    Args:
-	        text: Text content to parse for placeholders
-	        paragraph_index: Index of the paragraph in the document
-	        position_offset: Character offset for absolute positioning
-	        translation: Bible translation to use
-	        
-	    Returns:
-	        List of validated Placeholder objects with specified translation
-	    """
-	    if translation is None:
-	        translation = self.default_translation
-	    
-	    placeholders: List[Placeholder] = []
-	    seen_references: Set[str] = set()
-	    
-	    # Primary pattern matching
-	    for match in self.PLACEHOLDER_PATTERN.finditer(text):
-	        placeholder = self._create_placeholder_from_match_with_translation(
-	            match, paragraph_index, position_offset, translation
-	        )
-	        
-	        if placeholder:
-	            # Track duplicates
-	            ref_key = placeholder.unique_key
-	            if ref_key in seen_references:
-	                self._stats.duplicate_count += 1
-	            else:
-	                seen_references.add(ref_key)
-	                placeholders.append(placeholder)
-	                self._stats.books_referenced.add(placeholder.reference.book)
-	    
-	    # Alternative pattern matching if enabled
-	    if self.enable_alternative_formats:
-	        for pattern in self.ALTERNATIVE_PATTERNS:
-	            for match in pattern.finditer(text):
-	                placeholder = self._create_placeholder_from_match_with_translation(
-	                    match, paragraph_index, position_offset, translation
-	                )
-	                
-	                if placeholder:
-	                    ref_key = placeholder.unique_key
-	                    if ref_key not in seen_references:
-	                        seen_references.add(ref_key)
-	                        placeholders.append(placeholder)
-	                        self._stats.books_referenced.add(placeholder.reference.book)
-	    
-	    # Update statistics
-	    self._stats.total_found += len(placeholders)
-	    self._stats.unique_references = len(seen_references)
-	    
-	    # Sort by position for sequential processing
-	    placeholders.sort(key=lambda p: p.position)
-	    
-	    logger.debug(
-	        f"Parsed {len(placeholders)} placeholders from text with translation {translation.name}"
-	    )
-	    
-	    return placeholders
-	
-	def _create_placeholder_from_match_with_translation(
-	    self,
-	    match: re.Match,
-	    paragraph_index: int,
-	    position_offset: int,
-	    translation: TranslationType
-	) -> Optional[Placeholder]:
-	    """
-	    Create a validated Placeholder object from a regex match with specified translation.
-	    """
-	    try:
-	        book, chapter, start_verse, end_verse = match.groups()
-	        
-	        # Normalize book name
-	        if self.normalize_whitespace:
-	            book = " ".join(book.split())
-	        
-	        # Create verse reference with the specified translation
-	        reference = VerseReference(
-	            book=book.strip(),
-	            chapter=int(chapter),
-	            start_verse=int(start_verse),
-	            end_verse=int(end_verse) if end_verse else None,
-	            translation=translation,  # Use the specified translation
-	        )
-	        
-	        # Create placeholder
-	        placeholder = Placeholder(
-	            reference=reference,
-	            raw_text=match.group(0),
-	            paragraph_index=paragraph_index,
-	            position=match.start() + position_offset,
-	        )
-	        
-	        return placeholder
-	        
-	    except (ValueError, TypeError) as e:
-	        self._stats.invalid_count += 1
-	        logger.warning(
-	            f"Failed to parse placeholder '{match.group(0)}': {e}"
-	        )
-	        return None
+    def parse_text_with_translation(
+        self,
+        text: str,
+        paragraph_index: int = 0,
+        position_offset: int = 0,
+        translation: Optional[TranslationType] = None
+    ) -> List[Placeholder]:
+        """
+        Extract and parse all placeholders from a text segment with specified translation.
+        
+        Args:
+            text: Text content to parse for placeholders
+            paragraph_index: Index of the paragraph in the document
+            position_offset: Character offset for absolute positioning
+            translation: Bible translation to use
+            
+        Returns:
+            List of validated Placeholder objects with specified translation
+        """
+        if translation is None:
+            translation = self.default_translation
+        
+        placeholders: List[Placeholder] = []
+        seen_references: Set[str] = set()
+        
+        # Primary pattern matching
+        for match in self.PLACEHOLDER_PATTERN.finditer(text):
+            placeholder = self._create_placeholder_from_match_with_translation(
+                match, paragraph_index, position_offset, translation
+            )
+            
+            if placeholder:
+                # Track duplicates
+                ref_key = placeholder.unique_key
+                if ref_key in seen_references:
+                    self._stats.duplicate_count += 1
+                else:
+                    seen_references.add(ref_key)
+                    placeholders.append(placeholder)
+                    self._stats.books_referenced.add(placeholder.reference.book)
+        
+        # Alternative pattern matching if enabled
+        if self.enable_alternative_formats:
+            for pattern in self.ALTERNATIVE_PATTERNS:
+                for match in pattern.finditer(text):
+                    placeholder = self._create_placeholder_from_match_with_translation(
+                        match, paragraph_index, position_offset, translation
+                    )
+                    
+                    if placeholder:
+                        ref_key = placeholder.unique_key
+                        if ref_key not in seen_references:
+                            seen_references.add(ref_key)
+                            placeholders.append(placeholder)
+                            self._stats.books_referenced.add(placeholder.reference.book)
+        
+        # Update statistics
+        self._stats.total_found += len(placeholders)
+        self._stats.unique_references = len(seen_references)
+        
+        # Sort by position for sequential processing
+        placeholders.sort(key=lambda p: p.position)
+        
+        logger.debug(
+            f"Parsed {len(placeholders)} placeholders from text with translation {translation.name}"
+        )
+        
+        return placeholders
+    
+    def _create_placeholder_from_match_with_translation(
+        self,
+        match: re.Match,
+        paragraph_index: int,
+        position_offset: int,
+        translation: TranslationType
+    ) -> Optional[Placeholder]:
+        """
+        Create a validated Placeholder object from a regex match with specified translation.
+        """
+        try:
+            book, chapter, start_verse, end_verse = match.groups()
+            
+            # Normalize book name
+            if self.normalize_whitespace:
+                book = " ".join(book.split())
+            
+            # Create verse reference with the specified translation
+            reference = VerseReference(
+                book=book.strip(),
+                chapter=int(chapter),
+                start_verse=int(start_verse),
+                end_verse=int(end_verse) if end_verse else None,
+                translation=translation,  # Use the specified translation
+            )
+            
+            # Create placeholder
+            placeholder = Placeholder(
+                reference=reference,
+                raw_text=match.group(0),
+                paragraph_index=paragraph_index,
+                position=match.start() + position_offset,
+            )
+            
+            return placeholder
+            
+        except (ValueError, TypeError) as e:
+            self._stats.invalid_count += 1
+            logger.warning(
+                f"Failed to parse placeholder '{match.group(0)}': {e}"
+            )
+            return None
