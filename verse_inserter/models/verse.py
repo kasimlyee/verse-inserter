@@ -115,7 +115,7 @@ class VerseReference(BaseModel):
     chapter: int = Field(..., ge=1, le=150)
     start_verse: int = Field(..., ge=1, le=176)
     end_verse: Optional[int] = Field(None, ge=1, le=176)
-    translation: TranslationType = Field(default=TranslationType.NIV)
+    translation: TranslationType = Field(default=TranslationType.NLT)
     
     @field_validator("end_verse")
     @classmethod
@@ -162,7 +162,7 @@ class VerseReference(BaseModel):
         return self.end_verse is not None
     
     @classmethod
-    def parse(cls, reference: str, translation: TranslationType = TranslationType.NIV) -> VerseReference:
+    def parse(cls, reference: str, translation: TranslationType = TranslationType.NLT) -> VerseReference:
         """
         Parse a scripture reference string into a structured VerseReference object.
         
@@ -174,7 +174,7 @@ class VerseReference(BaseModel):
         
         Args:
             reference: Scripture reference string to parse
-            translation: Bible translation to use (default: NIV)
+            translation: Bible translation to use (default: NLT)
             
         Returns:
             Parsed and validated VerseReference instance
