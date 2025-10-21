@@ -1,4 +1,3 @@
-"""
 from __future__ import annotations
 
 import asyncio
@@ -509,4 +508,3 @@ Phone: +256701521269
         except Exception:
             logger.exception("Error shutting down executor")
         super().destroy()
-"""
