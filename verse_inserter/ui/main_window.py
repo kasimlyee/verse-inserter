@@ -475,8 +475,8 @@ class MainWindow(ttk.Window if THEME else tk.Tk):
     )
 	            
 	            # Update placeholders to use selected translation
-	            for placeholder in placeholders:
-	                placeholder.reference.translation = translation
+	           # for placeholder in placeholders:
+	            #    placeholder.reference.translation = translation
 	            
 	            if not placeholders:
 	                self.after(0, lambda: messagebox.showinfo(
