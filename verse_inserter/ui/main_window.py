@@ -36,7 +36,11 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
     def __init__(self, settings: Settings) -> None:
         if hasattr(ttk, "Window"):
             # If ttkbootstrap is present, prefer themed window
-            super().__init__(themename=getattr(ttk, "STYLE", None) or None)
+            try:
+                super().__init__(themename="cosmo")
+            except Exception as e:
+                logger.warning(f"ttkbootstrap theme failed: {e}, using default")
+                super().__init__()
         else:
             super().__init__()
 
