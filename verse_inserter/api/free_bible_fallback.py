@@ -58,17 +58,19 @@ class FreeBibleFallback:
             Verse object if successful, None if failed
         """
         try:
+            # Get free API translation code
             free_translation = self.TRANSLATION_MAP.get(reference.translation, "niv")
             
-            # Format reference for free API: John+3:16 or Psalm+23:1-3
-            api_reference = f"{reference.book} {reference.chapter}:{reference.start_verse}"
+            # Format reference properly: "1 Peter 2:24" → "1+Peter+2:24"
+            verse_ref = f"{reference.book} {reference.chapter}:{reference.start_verse}"
             if reference.end_verse:
-                api_reference += f"-{reference.end_verse}"
+                verse_ref += f"-{reference.end_verse}"
             
-            # URL encode the reference (spaces become %20 or +)
-            api_reference = quote(api_reference, safe='')
+            # Replace spaces with + for URL
+            verse_ref = verse_ref.replace(" ", "+")
             
-            url = f"{self.BASE_URL}/{api_reference}?translation={free_translation}"
+            url = f"{self.BASE_URL}/{verse_ref}?translation={free_translation}"
+            
             
             async with self.session.get(url, timeout=30) as response:
                 if response.status == 200:
