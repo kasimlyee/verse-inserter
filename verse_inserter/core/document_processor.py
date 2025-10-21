@@ -188,40 +188,44 @@ class DocumentProcessor:
             logger.error(f"Error loading document: {e}")
             raise ValueError(f"Failed to load document: {e}") from e
     
+
     def find_all_placeholders(
         self,
         document: DocumentType,
+        translation: Optional[TranslationType] = None,
         scan_tables: bool = True,
         scan_headers_footers: bool = True,
     ) -> List[Placeholder]:
         """
-        Comprehensively scan document for all scripture placeholders.
+        Comprehensively scan document for all scripture placeholders with specified translation.
         
         Performs deep traversal of document structure to locate placeholders
         in all content areas including main body, tables, headers, and footers.
         
         Args:
             document: Document object to scan
+            translation: Bible translation to use for parsing placeholders
             scan_tables: Whether to scan table cells
             scan_headers_footers: Whether to scan headers/footers
             
         Returns:
-            List of all detected Placeholder objects
+            List of all detected Placeholder objects with correct translation
             
         Example:
-            >>> placeholders = processor.find_all_placeholders(doc)
+            >>> placeholders = processor.find_all_placeholders(doc, TranslationType.NIV)
             >>> print(f"Found {len(placeholders)} placeholders")
         """
         all_placeholders: List[Placeholder] = []
         
         self._report_progress(0, 100, "Scanning document structure...")
         
-        # Scan main document body
-        logger.debug("Scanning main document paragraphs")
+        # Scan main document body with specified translation
+        logger.debug(f"Scanning main document paragraphs with translation: {translation}")
         for idx, paragraph in enumerate(document.paragraphs):
-            placeholders = self.parser.parse_text(
-                text=paragraph.text,
-                paragraph_index=idx,
+            placeholders = self._parse_paragraph_with_translation(
+                paragraph.text, 
+                idx, 
+                translation
             )
             all_placeholders.extend(placeholders)
         
@@ -230,7 +234,10 @@ class DocumentProcessor:
         # Scan tables if enabled
         if scan_tables:
             logger.debug("Scanning document tables")
-            table_placeholders = self._scan_tables(document.tables)
+            table_placeholders = self._scan_tables_with_translation(
+                document.tables, 
+                translation
+            )
             all_placeholders.extend(table_placeholders)
             self._report_progress(
                 70, 100, 
@@ -240,7 +247,10 @@ class DocumentProcessor:
         # Scan headers and footers if enabled
         if scan_headers_footers:
             logger.debug("Scanning headers and footers")
-            header_footer_placeholders = self._scan_headers_footers(document)
+            header_footer_placeholders = self._scan_headers_footers_with_translation(
+                document, 
+                translation
+            )
             all_placeholders.extend(header_footer_placeholders)
             self._report_progress(
                 90, 100,
@@ -252,9 +262,153 @@ class DocumentProcessor:
             f"Scan complete: {len(all_placeholders)} total placeholders"
         )
         
-        logger.info(f"Document scan complete: {len(all_placeholders)} placeholders found")
+        logger.info(f"Document scan complete: {len(all_placeholders)} placeholders found with translation: {translation}")
         return all_placeholders
     
+    def _parse_paragraph_with_translation(
+        self, 
+        text: str, 
+        paragraph_index: int, 
+        translation: Optional[TranslationType] = None
+    ) -> List[Placeholder]:
+        """
+        Parse placeholders from paragraph text with specified translation.
+        """
+        if translation is not None:
+            # Use the translation-aware method if available
+            if hasattr(self.parser, 'parse_text_with_translation'):
+                return self.parser.parse_text_with_translation(
+                    text=text,
+                    paragraph_index=paragraph_index,
+                    translation=translation
+                )
+            else:
+                # Fallback: parse normally and update translation later
+                placeholders = self.parser.parse_text(
+                    text=text,
+                    paragraph_index=paragraph_index,
+                )
+                return self._update_placeholders_translation(placeholders, translation)
+        else:
+            # Use default parsing
+            return self.parser.parse_text(
+                text=text,
+                paragraph_index=paragraph_index,
+            )
+    
+    def _scan_tables_with_translation(
+        self, 
+        tables: List[Table], 
+        translation: Optional[TranslationType] = None
+    ) -> List[Placeholder]:
+        """
+        Scan all tables in document for placeholders with specified translation.
+        
+        Args:
+            tables: List of table objects
+            translation: Bible translation to use
+            
+        Returns:
+            List of placeholders found in tables
+        """
+        placeholders = []
+        
+        for table_idx, table in enumerate(tables):
+            for row_idx, row in enumerate(table.rows):
+                for cell_idx, cell in enumerate(row.cells):
+                    # Parse each cell's text with translation
+                    for para_idx, paragraph in enumerate(cell.paragraphs):
+                        cell_placeholders = self._parse_paragraph_with_translation(
+                            paragraph.text,
+                            para_idx,
+                            translation
+                        )
+                        placeholders.extend(cell_placeholders)
+        
+        return placeholders
+    
+    def _scan_headers_footers_with_translation(
+        self, 
+        document: DocumentType, 
+        translation: Optional[TranslationType] = None
+    ) -> List[Placeholder]:
+        """
+        Scan document headers and footers for placeholders with specified translation.
+        
+        Args:
+            document: Document object
+            translation: Bible translation to use
+            
+        Returns:
+            List of placeholders found in headers/footers
+        """
+        placeholders = []
+        
+        for section in document.sections:
+            # Scan header
+            if section.header:
+                for idx, paragraph in enumerate(section.header.paragraphs):
+                    header_placeholders = self._parse_paragraph_with_translation(
+                        paragraph.text,
+                        idx,
+                        translation
+                    )
+                    placeholders.extend(header_placeholders)
+            
+            # Scan footer
+            if section.footer:
+                for idx, paragraph in enumerate(section.footer.paragraphs):
+                    footer_placeholders = self._parse_paragraph_with_translation(
+                        paragraph.text,
+                        idx,
+                        translation
+                    )
+                    placeholders.extend(footer_placeholders)
+        
+        return placeholders
+    
+    def _update_placeholders_translation(
+        self, 
+        placeholders: List[Placeholder], 
+        translation: TranslationType
+    ) -> List[Placeholder]:
+        """
+        Update the translation for a list of placeholders.
+        
+        This is a fallback method if the parser doesn't support translation-aware parsing.
+        """
+        if not placeholders:
+            return placeholders
+        
+        updated_placeholders = []
+        for placeholder in placeholders:
+            try:
+                # Create new reference with updated translation
+                new_reference = VerseReference(
+                    book=placeholder.reference.book,
+                    chapter=placeholder.reference.chapter,
+                    start_verse=placeholder.reference.start_verse,
+                    end_verse=placeholder.reference.end_verse,
+                    translation=translation
+                )
+                
+                # Create new placeholder with updated reference
+                new_placeholder = Placeholder(
+                    raw_text=placeholder.raw_text,
+                    reference=new_reference,
+                    position=placeholder.position,
+                    paragraph_index=placeholder.paragraph_index,
+                    status=placeholder.status,
+                    error_message=placeholder.error_message
+                )
+                updated_placeholders.append(new_placeholder)
+                
+            except Exception as e:
+                logger.warning(f"Failed to update translation for placeholder {placeholder.raw_text}: {e}")
+                # Keep original placeholder as fallback
+                updated_placeholders.append(placeholder)
+        
+        return updated_placeholders
     def _scan_tables(self, tables: List[Table]) -> List[Placeholder]:
         """
         Scan all tables in document for placeholders.
