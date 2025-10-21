@@ -505,7 +505,17 @@ class MainWindow(ttk.Window if THEME else tk.Tk):
 	            output_path = self.document_processor.generate_output_filename(
 	                self.selected_file
 	            )
-	            self.document_processor.save_document(doc, output_path)
+	            try:
+				    self.document_processor.save_document(doc, output_path, overwrite=True)
+				    self._log_message(f"✅ Document saved: {output_path}")
+				except Exception as e:
+				    # If overwrite fails, generate a unique filename
+				    import time
+				    timestamp = int(time.time())
+				    unique_output_path = output_path.parent / f"{output_path.stem}_{timestamp}{output_path.suffix}"
+				    self.document_processor.save_document(doc, unique_output_path)
+				    self._log_message(f"✅ Document saved with unique name: {unique_output_path}")
+				    output_path = unique_output_path
 	            
 	            self._log_message(f"✓ Document saved: {output_path}")
 	            self._log_message(f"✓ Replaced: {result.placeholders_replaced}/{result.placeholders_found}")
