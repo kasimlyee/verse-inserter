@@ -19,6 +19,7 @@ from .api_exceptions import (
     APIRateLimitError as RateLimitError, 
     APIAuthenticationError as AuthenticationError
 )
+from .free_bible_fallback import FreeBibleFallback
 
 logger = get_logger(__name__)
 
@@ -338,6 +339,47 @@ class BibleAPIClient:
         
         # Return mapped abbreviation or fallback to first 3 chars uppercase
         return book_map.get(book_lower, book_name.upper()[:3])
+
+    async def fetch_verse_with_fallback(self, reference: VerseReference) -> Optional[Verse]:
+        """
+        Fetch verse with automatic fallback to free API.
+        
+        Tries the primary API.Bible first, then falls back to free API
+        if the primary fails (e.g., due to plan restrictions).
+        
+        Args:
+            reference: VerseReference to fetch
+            
+        Returns:
+            Verse object if either API succeeds, None if both fail
+        """
+        try:
+            # Try primary API first
+            verse = await self.fetch_verse(reference)
+            if verse and verse.text:
+                logger.info(f"Primary API success: {reference.canonical_reference}")
+                return verse
+                
+        except Exception as primary_error:
+            logger.warning(
+                f"Primary API failed for {reference.canonical_reference}: {primary_error}. "
+                f"Trying free fallback..."
+            )
+        
+        # Primary failed, try free fallback
+        try:
+            async with FreeBibleFallback() as free_client:
+                verse = await free_client.fetch_verse(reference)
+                if verse and verse.text:
+                    logger.info(f"Free fallback success: {reference.canonical_reference}")
+                    return verse
+                else:
+                    logger.error(f"Free fallback also failed for: {reference.canonical_reference}")
+                    return None
+                    
+        except Exception as fallback_error:
+            logger.error(f"Free fallback error for {reference.canonical_reference}: {fallback_error}")
+            return None
     
     def _clean_verse_text(self, text: str) -> str:
         """
