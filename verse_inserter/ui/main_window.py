@@ -569,39 +569,60 @@ class MainWindow(ttk.Window if THEME else tk.Tk):
 	    logger.warning(f"Could not parse translation: {trans_text}, using KJV")
 	    return TranslationType.KJV
     
-    def _fetch_verses_async(self, placeholders, translation):
-        """Fetch verses using API."""
-        verses_dict = {}
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        try:
-            async def fetch_all():
-                async with BibleAPIClient(self.settings.api_key) as client:
-                    unique_refs = self.placeholder_parser.extract_unique_references(placeholders)
-                    
-                    for idx, ref in enumerate(unique_refs):
-                        cached_verse = self.cache_manager.get(ref)
-                        if cached_verse:
-                            verses_dict[ref.canonical_reference] = cached_verse
-                            self._log_message(f"💾 Cache hit: {ref.canonical_reference}")
-                        else:
-                            try:
-                                verse = await client.fetch_verse(ref)
-                                verses_dict[ref.canonical_reference] = verse
-                                self.cache_manager.set(ref, verse)
-                                self._log_message(f"✓ Fetched: {ref.canonical_reference}")
-                            except Exception as e:
-                                self._log_message(f"✗ Failed: {ref.canonical_reference} - {e}")
-                        
-                        progress = (idx + 1) / len(unique_refs) * 50 + 50
-                        self.after(0, lambda p=progress: self.progress_var.set(p))
-            
-            loop.run_until_complete(fetch_all())
-        finally:
-            loop.close()
-        
-        return verses_dict
+	def _fetch_verses_async(self, placeholders, translation):
+	    """Fetch verses using API."""
+	    verses_dict = {}
+	    loop = asyncio.new_event_loop()
+	    asyncio.set_event_loop(loop)
+	    
+	    try:
+	        async def fetch_all():
+	            async with BibleAPIClient(self.settings.api_key) as client:
+	                # Extract unique references
+	                unique_refs = self.placeholder_parser.extract_unique_references(placeholders)
+	                
+	                self._log_message(f"📡 Fetching {len(unique_refs)} unique verses from API...")
+	                
+	                for idx, ref in enumerate(unique_refs):
+	                    # Check cache first
+	                    cached_verse = self.cache_manager.get(ref)
+	                    if cached_verse:
+	                        verses_dict[ref.canonical_reference] = cached_verse
+	                        self._log_message(f"💾 Cache hit: {ref.canonical_reference}")
+	                    else:
+	                        try:
+	                            # Fetch from API
+	                            self._log_message(f"⬇️ Fetching: {ref.canonical_reference} ({ref.translation.display_name})")
+	                            verse = await client.fetch_verse(ref)
+	                            
+	                            if verse and verse.text:
+	                                verses_dict[ref.canonical_reference] = verse
+	                                self.cache_manager.set(ref, verse)
+	                                self._log_message(f"✅ Fetched: {ref.canonical_reference}")
+	                            else:
+	                                self._log_message(f"❌ Empty response for: {ref.canonical_reference}")
+	                                
+	                        except Exception as e:
+	                            error_msg = f"❌ Failed to fetch {ref.canonical_reference}: {str(e)}"
+	                            self._log_message(error_msg)
+	                            logger.error(error_msg)
+	                    
+	                    # Update progress
+	                    progress = (idx + 1) / len(unique_refs) * 50 + 50
+	                    self.after(0, lambda p=progress: self.progress_var.set(p))
+	                    self.after(0, lambda: self.status_var.set(f"Fetching verses... {idx + 1}/{len(unique_refs)}"))
+	        
+	        loop.run_until_complete(fetch_all())
+	        
+	    except Exception as e:
+	        error_msg = f"API fetch error: {e}"
+	        self._log_message(f"❌ {error_msg}")
+	        logger.error(error_msg)
+	    finally:
+	        loop.close()
+	    
+	    self._log_message(f"📊 Fetched {len(verses_dict)} verses successfully")
+	    return verses_dict
     
     def _progress_callback(self, current: int, total: int, message: str) -> None:
         """Progress callback."""
