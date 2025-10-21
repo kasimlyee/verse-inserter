@@ -469,7 +469,10 @@ class MainWindow(ttk.Window if THEME else tk.Tk):
 	            self.document_processor.set_progress_callback(self._progress_callback)
 	            
 	            # Ensure placeholders are parsed with the correct translation
-	            placeholders = self.document_processor.find_all_placeholders(doc)
+	            placeholders = self.document_processor.find_all_placeholders(
+        doc, 
+        translation=translation  
+    )
 	            
 	            # Update placeholders to use selected translation
 	            for placeholder in placeholders:
