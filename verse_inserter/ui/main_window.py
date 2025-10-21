@@ -368,7 +368,7 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
         logger.warning(f"Could not parse translation: {trans_text}, using KJV")
         return TranslationType.KJV
 
-   def _fetch_verses_async(self, placeholders: Iterable[Any], translation: TranslationType) -> Dict[str, Any]:
+    def _fetch_verses_async(self, placeholders: Iterable[Any], translation: TranslationType) -> Dict[str, Any]:
         """Fetch verses from API with fallback support."""
         verses_dict: Dict[str, Any] = {}
         loop = asyncio.new_event_loop()
