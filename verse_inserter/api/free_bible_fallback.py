@@ -14,6 +14,7 @@ from typing import Optional
 from ..models.verse import Verse, VerseReference, TranslationType
 from ..utils.logger import get_logger
 from .nlt_api_client import NLTAPIClient
+from .fall_back import FreeBibleFallback
 
 logger = get_logger(__name__)
 
