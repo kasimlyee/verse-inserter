@@ -52,7 +52,7 @@ class SettingsDialog(ttk.Toplevel):
         
         # Window configuration
         self.title("Settings - VerseInserter")
-        self.geometry("700x600")
+        self.geometry("700x650")
         self.resizable(False, False)
         
         # Modal dialog
