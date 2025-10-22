@@ -31,7 +31,7 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
 
     APP_TITLE = "VerseInserter - Automated Scripture Insertion"
     APP_VERSION = "1.0.0"
-    WINDOW_SIZE = "800x600"
+    WINDOW_SIZE = "900x700"
 
     def __init__(self, settings: Settings) -> None:
         if hasattr(ttk, "Window"):
@@ -86,7 +86,7 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
         y = (self.winfo_screenheight() // 2) - (height // 2)
         self.geometry(f"{width}x{height}+{x}+{y}")
 
-        self.minsize(700, 500)
+        self.minsize(800, 600)
 
     def _create_widgets(self) -> None:
         main_frame = ttk.Frame(self, padding=20)
