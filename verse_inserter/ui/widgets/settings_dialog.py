@@ -53,7 +53,8 @@ class SettingsDialog(ttk.Toplevel):
         # Window configuration
         self.title("Settings - VerseInserter")
         self.geometry("700x650")
-        self.resizable(False, False)
+        self.resizable(True, True)
+        self.minsize(700, 500)
         
         # Modal dialog
         self.transient(parent)
@@ -86,14 +87,40 @@ class SettingsDialog(ttk.Toplevel):
         self.geometry(f"+{x}+{y}")
     
     def _create_widgets(self) -> None:
-        """Create all dialog widgets."""
-        # Main container
-        main_frame = ttk.Frame(self, padding=20)
-        main_frame.pack(fill=BOTH, expand=YES)
+        """Create all dialog widgets with scrollbar."""
+        # Main container with scrollbar
+        main_container = ttk.Frame(self)
+        main_container.pack(fill=BOTH, expand=YES)
+        
+        # Create scrollable frame
+        canvas = tk.Canvas(main_container, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(main_container, orient=VERTICAL, command=canvas.yview)
+        self.scrollable_frame = ttk.Frame(canvas, padding=20)
+        
+        # Configure canvas scrolling
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        # Create window in canvas for the scrollable frame
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack canvas and scrollbar
+        canvas.pack(side=LEFT, fill=BOTH, expand=YES)
+        scrollbar.pack(side=RIGHT, fill=Y)
+    
+        # Bind mousewheel scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+    
+        canvas.bind("<MouseWheel>", _on_mousewheel)
+        self.scrollable_frame.bind("<MouseWheel>", _on_mousewheel)
         
         # Header
         header_label = ttk.Label(
-            main_frame,
+            self.scrollable_frame,
             text="Application Settings",
             font=("Segoe UI", 16, "bold"),
             bootstyle=PRIMARY
@@ -101,7 +128,7 @@ class SettingsDialog(ttk.Toplevel):
         header_label.pack(pady=(0, 20))
         
         # Notebook for tabs
-        self.notebook = ttk.Notebook(main_frame, bootstyle=INFO)
+        self.notebook = ttk.Notebook(self.scrollable_frame, bootstyle=INFO)
         self.notebook.pack(fill=BOTH, expand=YES, pady=(0, 20))
         
         # Create tabs
@@ -111,8 +138,8 @@ class SettingsDialog(ttk.Toplevel):
         self._create_processing_tab()
         self._create_advanced_tab()
         
-        # Button frame
-        self._create_buttons(main_frame)
+        # Button frame - pack at bottom of scrollable area
+        self._create_buttons(self.scrollable_frame)
     
     def _create_api_tab(self) -> None:
         """Create API configuration tab."""
@@ -800,6 +827,143 @@ class SettingsDialog(ttk.Toplevel):
         
         # Method 3: Return the original text as fallback
         return trans_text
+    def _create_cache_tab(self) -> None:
+        """Create cache settings tab."""
+        tab = ttk.Frame(self.notebook, padding=20)
+        self.notebook.add(tab, text="Cache")
+        
+        # Cache enable/disable
+        cache_frame = ttk.Labelframe(
+            tab,
+            text="Cache Settings",
+            padding=15,
+            bootstyle=PRIMARY
+        )
+        cache_frame.pack(fill=X, pady=(0, 15))
+        
+        self.enable_cache_var = tk.BooleanVar()
+        cache_check = ttk.Checkbutton(
+            cache_frame,
+            text="Enable caching for faster performance",
+            variable=self.enable_cache_var,
+            bootstyle="success-round-toggle"
+        )
+        cache_check.pack(anchor=W, pady=(0, 10))
+        
+        # Cache directory
+        ttk.Label(
+            cache_frame,
+            text="Cache Directory:",
+            font=("Segoe UI", 10, "bold")
+        ).pack(anchor=W, pady=(0, 5))
+        
+        dir_frame = ttk.Frame(cache_frame)
+        dir_frame.pack(fill=X, pady=(0, 10))
+        
+        self.cache_dir_var = tk.StringVar()
+        cache_dir_entry = ttk.Entry(
+            dir_frame,
+            textvariable=self.cache_dir_var,
+            width=50,
+            state="readonly"
+        )
+        cache_dir_entry.pack(side=LEFT, fill=X, expand=YES, padx=(0, 5))
+        
+        browse_btn = ttk.Button(
+            dir_frame,
+            text="Browse",
+            command=self._browse_cache_dir,
+            bootstyle=INFO,
+            width=10
+        )
+        browse_btn.pack(side=LEFT)
+        
+        # Cache TTL
+        ttk.Label(
+            cache_frame,
+            text="Cache Time-to-Live (days):",
+            font=("Segoe UI", 10, "bold")
+        ).pack(anchor=W, pady=(0, 5))
+        
+        self.cache_ttl_var = tk.IntVar()
+        ttl_spin = ttk.Spinbox(
+            cache_frame,
+            from_=1,
+            to=365,
+            textvariable=self.cache_ttl_var,
+            width=10
+        )
+        ttl_spin.pack(anchor=W, pady=(0, 10))
+        
+        # Cache statistics
+        stats_frame = ttk.Labelframe(
+            tab,
+            text="Cache Statistics",
+            padding=15,
+            bootstyle=INFO
+        )
+        stats_frame.pack(fill=X)
+        
+        self.cache_stats_var = tk.StringVar(value="Calculating...")
+        stats_label = ttk.Label(
+            stats_frame,
+            textvariable=self.cache_stats_var,
+            font=("Segoe UI", 9),
+            bootstyle=SECONDARY,
+            wraplength=600
+        )
+        stats_label.pack(anchor=W)
+        
+        # Clear cache button
+        clear_btn = ttk.Button(
+            stats_frame,
+            text="Clear Cache Now",
+            command=self._clear_cache,
+            bootstyle=WARNING,
+            width=15
+        )
+        clear_btn.pack(anchor=W, pady=(10, 0))
+
+    def _update_cache_stats(self) -> None:
+        """Update cache statistics display."""
+        try:
+            cache_dir = Path(self.cache_dir_var.get())
+            if cache_dir.exists():
+                cache_files = list(cache_dir.glob("*.json"))
+                total_size = sum(f.stat().st_size for f in cache_files)
+                size_kb = total_size / 1024
+                
+                self.cache_stats_var.set(
+                    f"Cache files: {len(cache_files)}\n"
+                    f"Total size: {size_kb:.1f} KB\n"
+                    f"Directory: {cache_dir}"
+                )
+            else:
+                self.cache_stats_var.set("Cache directory does not exist")
+        except Exception as e:
+            self.cache_stats_var.set(f"Error reading cache: {str(e)}")
+
+    def _clear_cache(self) -> None:
+        """Clear all cache files."""
+        result = messagebox.askyesno(
+            "Clear Cache",
+            "Are you sure you want to clear all cached data?\n\n"
+            "This will remove all cached Bible verses and translations."
+        )
+        
+        if result:
+            try:
+                cache_dir = Path(self.cache_dir_var.get())
+                if cache_dir.exists():
+                    for cache_file in cache_dir.glob("*.json"):
+                        cache_file.unlink()
+                    
+                    self._update_cache_stats()
+                    messagebox.showinfo("Cache Cleared", "All cache files have been cleared.")
+                else:
+                    messagebox.showinfo("Cache Cleared", "Cache directory was already empty.")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to clear cache: {str(e)}")
     
     def _cancel(self) -> None:
         """Cancel and close dialog."""
@@ -831,3 +995,4 @@ class SettingsDialog(ttk.Toplevel):
                 "Reset Complete",
                 "Settings have been reset to defaults."
             )
+            
