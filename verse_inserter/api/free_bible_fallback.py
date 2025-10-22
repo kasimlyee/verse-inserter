@@ -19,7 +19,7 @@ from .free_bible_fallback import FreeBibleFallback
 logger = get_logger(__name__)
 
 
-class FreeBibleFallback:
+class EnhancedBibleFallback:
     """
     Smart fallback manager that selects the best API for each request.
     
