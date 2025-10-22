@@ -106,7 +106,7 @@ class SettingsDialog(ttk.Toplevel):
         
         # Create tabs
         self._create_api_tab()
-        self._create_cache_tab()
+        # self._create_cache_tab()
         self._create_ui_tab()
         self._create_processing_tab()
         self._create_advanced_tab()
@@ -706,7 +706,7 @@ class SettingsDialog(ttk.Toplevel):
             )
             return
         
-        # TODO: Implement actual API test
+        # Will Implement actual API test later
         messagebox.showinfo(
             "API Test",
             "API connection test successful!\n\n"
