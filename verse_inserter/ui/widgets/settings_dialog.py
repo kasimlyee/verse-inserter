@@ -208,99 +208,208 @@ class SettingsDialog(ttk.Toplevel):
         )
         trans_combo.pack(anchor=W)
     
-    def _create_cache_tab(self) -> None:
-        """Create cache management tab."""
+    def _create_api_tab(self) -> None:
+        """Create API configuration tab."""
         tab = ttk.Frame(self.notebook, padding=20)
-        self.notebook.add(tab, text="Cache Settings")
+        self.notebook.add(tab, text="API Configuration")
         
-        # Enable cache
-        cache_frame = ttk.Labelframe(
+        # API.Bible API Key section
+        api_bible_frame = ttk.Labelframe(
             tab,
-            text="Cache Configuration",
+            text="API.Bible Configuration",
             padding=15,
             bootstyle=PRIMARY
         )
-        cache_frame.pack(fill=X, pady=(0, 15))
+        api_bible_frame.pack(fill=X, pady=(0, 15))
         
-        self.enable_cache_var = tk.BooleanVar()
-        enable_check = ttk.Checkbutton(
-            cache_frame,
-            text="Enable verse caching (recommended)",
-            variable=self.enable_cache_var,
+        # API Key input
+        ttk.Label(
+            api_bible_frame,
+            text="API.Bible API Key:",
+            font=("Segoe UI", 10, "bold")
+        ).pack(anchor=W, pady=(0, 5))
+        
+        key_frame = ttk.Frame(api_bible_frame)
+        key_frame.pack(fill=X, pady=(0, 10))
+        
+        self.api_key_var = tk.StringVar()
+        self.api_key_entry = ttk.Entry(
+            key_frame,
+            textvariable=self.api_key_var,
+            width=50,
+            show="*"
+        )
+        self.api_key_entry.pack(side=LEFT, fill=X, expand=YES, padx=(0, 5))
+        
+        # Show/Hide toggle
+        self.show_key_var = tk.BooleanVar(value=False)
+        self.show_key_btn = ttk.Checkbutton(
+            key_frame,
+            text="Show",
+            variable=self.show_key_var,
+            command=self._toggle_api_key_visibility,
+            bootstyle="info-round-toggle"
+        )
+        self.show_key_btn.pack(side=LEFT)
+        
+        # Test API button
+        test_btn = ttk.Button(
+            api_bible_frame,
+            text="Test API.Bible Connection",
+            command=self._test_api_connection,
+            bootstyle=INFO,
+            width=25
+        )
+        test_btn.pack(anchor=W, pady=(0, 10))
+        
+        # Help text
+        help_text = (
+            "Get your free API key from: https://scripture.api.bible\n"
+            "Free tier: 100 requests/minute, 10,000/day"
+        )
+        ttk.Label(
+            api_bible_frame,
+            text=help_text,
+            font=("Segoe UI", 9),
+            bootstyle=SECONDARY,
+            wraplength=600
+        ).pack(anchor=W)
+        
+        # NLT API Key section (NEW)
+        nlt_api_frame = ttk.Labelframe(
+            tab,
+            text="NLT API Configuration (Optional)",
+            padding=15,
+            bootstyle=SUCCESS
+        )
+        nlt_api_frame.pack(fill=X, pady=(0, 15))
+        
+        # NLT API Key input
+        ttk.Label(
+            nlt_api_frame,
+            text="NLT API Key:",
+            font=("Segoe UI", 10, "bold")
+        ).pack(anchor=W, pady=(0, 5))
+        
+        nlt_key_frame = ttk.Frame(nlt_api_frame)
+        nlt_key_frame.pack(fill=X, pady=(0, 10))
+        
+        self.nlt_api_key_var = tk.StringVar()
+        self.nlt_api_key_entry = ttk.Entry(
+            nlt_key_frame,
+            textvariable=self.nlt_api_key_var,
+            width=50,
+            show="*"
+        )
+        self.nlt_api_key_entry.pack(side=LEFT, fill=X, expand=YES, padx=(0, 5))
+        
+        # Show/Hide toggle for NLT
+        self.show_nlt_key_var = tk.BooleanVar(value=False)
+        self.show_nlt_key_btn = ttk.Checkbutton(
+            nlt_key_frame,
+            text="Show",
+            variable=self.show_nlt_key_var,
+            command=self._toggle_nlt_api_key_visibility,
             bootstyle="success-round-toggle"
         )
-        enable_check.pack(anchor=W, pady=(0, 10))
+        self.show_nlt_key_btn.pack(side=LEFT)
         
-        # Cache directory
+        # Test NLT API button
+        test_nlt_btn = ttk.Button(
+            nlt_api_frame,
+            text="Test NLT API Connection",
+            command=self._test_nlt_api_connection,
+            bootstyle=SUCCESS,
+            width=25
+        )
+        test_nlt_btn.pack(anchor=W, pady=(0, 10))
+        
+        # NLT Help text
+        nlt_help_text = (
+            "Get your NLT API key from: https://api.nlt.to\n"
+            "Required for NLT translation. Use 'TEST' for testing (limited to 50 verses/request, 500 requests/day)\n"
+            "Supports: NLT, NLT-UK, KJV (via NLT API)"
+        )
         ttk.Label(
-            cache_frame,
-            text="Cache Directory:",
-            font=("Segoe UI", 10, "bold")
-        ).pack(anchor=W, pady=(10, 5))
+            nlt_api_frame,
+            text=nlt_help_text,
+            font=("Segoe UI", 9),
+            bootstyle=SECONDARY,
+            wraplength=600
+        ).pack(anchor=W)
         
-        dir_frame = ttk.Frame(cache_frame)
-        dir_frame.pack(fill=X, pady=(0, 10))
-        
-        self.cache_dir_var = tk.StringVar()
-        cache_dir_entry = ttk.Entry(
-            dir_frame,
-            textvariable=self.cache_dir_var,
-            state="readonly",
-            width=50
-        )
-        cache_dir_entry.pack(side=LEFT, fill=X, expand=YES, padx=(0, 5))
-        
-        browse_btn = ttk.Button(
-            dir_frame,
-            text="Browse...",
-            command=self._browse_cache_dir,
-            bootstyle=INFO,
-            width=10
-        )
-        browse_btn.pack(side=LEFT)
-        
-        # Cache TTL
-        ttk.Label(
-            cache_frame,
-            text="Cache Time-To-Live (days):",
-            font=("Segoe UI", 10, "bold")
-        ).pack(anchor=W, pady=(10, 5))
-        
-        self.cache_ttl_var = tk.IntVar()
-        ttl_spin = ttk.Spinbox(
-            cache_frame,
-            from_=1,
-            to=365,
-            textvariable=self.cache_ttl_var,
-            width=10
-        )
-        ttl_spin.pack(anchor=W)
-        
-        # Cache statistics
-        stats_frame = ttk.Labelframe(
+        # Default translation
+        trans_frame = ttk.Labelframe(
             tab,
-            text="Cache Statistics",
+            text="Default Translation",
             padding=15,
-            bootstyle=SECONDARY
+            bootstyle=PRIMARY
         )
-        stats_frame.pack(fill=X)
+        trans_frame.pack(fill=X)
         
-        self.cache_stats_label = ttk.Label(
-            stats_frame,
-            text="Loading statistics...",
-            font=("Consolas", 9)
-        )
-        self.cache_stats_label.pack(anchor=W)
+        ttk.Label(
+            trans_frame,
+            text="Default Bible Translation:",
+            font=("Segoe UI", 10, "bold")
+        ).pack(anchor=W, pady=(0, 5))
         
-        # Clear cache button
-        clear_btn = ttk.Button(
-            stats_frame,
-            text="Clear Cache",
-            command=self._clear_cache,
-            bootstyle=DANGER,
-            width=15
+        translations = [t.display_name for t in TranslationType]
+        self.default_trans_var = tk.StringVar()
+        
+        trans_combo = ttk.Combobox(
+            trans_frame,
+            textvariable=self.default_trans_var,
+            values=translations,
+            state="readonly",
+            width=40
         )
-        clear_btn.pack(anchor=W, pady=(10, 0))
+        trans_combo.pack(anchor=W)
+
+    def _toggle_nlt_api_key_visibility(self) -> None:
+        """Toggle NLT API key visibility."""
+        if self.show_nlt_key_var.get():
+            self.nlt_api_key_entry.config(show="")
+        else:
+            self.nlt_api_key_entry.config(show="*")
+
+
+    async def _test_nlt_api_connection_async(self) -> tuple[bool, str]:
+        """Async helper for testing NLT API connection."""
+        from ...api.nlt_api_client import NLTAPIClient
+        
+        nlt_key = self.nlt_api_key_var.get()
+        
+        if not nlt_key:
+            return False, "Please enter an NLT API key first."
+        
+        try:
+            async with NLTAPIClient(nlt_key) as client:
+                success = await client.test_connection()
+                if success:
+                    return True, "NLT API connection test successful!\n\nYour API key is valid and working."
+                else:
+                    return False, "NLT API connection failed.\n\nPlease check your API key."
+        except Exception as e:
+            return False, f"Error testing NLT API: {str(e)}"
+
+
+    def _test_nlt_api_connection(self) -> None:
+        """Test NLT API connection with current key."""
+        import asyncio
+        
+        # Run async test
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        success, message = loop.run_until_complete(self._test_nlt_api_connection_async())
+        
+        if success:
+            messagebox.showinfo("NLT API Test", message)
+        else:
+            messagebox.showerror("NLT API Test Failed", message)
     
     def _create_ui_tab(self) -> None:
         """Create UI preferences tab."""
@@ -544,11 +653,10 @@ class SettingsDialog(ttk.Toplevel):
     def _load_current_settings(self) -> None:
         """Load current settings into dialog."""
         self.api_key_var.set(self.settings.api_key)
+        self.nlt_api_key_var.set(self.settings.nlt_api_key)  # <-- ADD THIS LINE
         
-        # Load translation - handle both display names and internal names
+        # Load translation
         current_trans = self.settings.default_translation
-        # If the current translation is a simple code (like "KJV"), 
-        # find the matching display name from TranslationType
         display_translation = current_trans
         for trans_type in TranslationType:
             if current_trans and (str(current_trans) in trans_type.display_name or str(current_trans) == trans_type.value):
@@ -615,52 +723,26 @@ class SettingsDialog(ttk.Toplevel):
         if directory:
             self.cache_dir_var.set(directory)
     
-    def _update_cache_stats(self) -> None:
-        """Update cache statistics display."""
-        # TODO: Get real statistics from cache manager
-        stats_text = (
-            "Cache Hits: 1,234\n"
-            "Cache Misses: 56\n"
-            "Hit Rate: 95.7%\n"
-            "Cache Size: 2.3 MB\n"
-            "Items Cached: 487"
-        )
-        self.cache_stats_label.config(text=stats_text)
-    
-    def _clear_cache(self) -> None:
-        """Clear cache after confirmation."""
-        result = messagebox.askyesno(
-            "Clear Cache",
-            "Are you sure you want to clear all cached verses?\n\n"
-            "This cannot be undone."
-        )
-        
-        if result:
-            # TODO: Actually clear cache
-            messagebox.showinfo(
-                "Cache Cleared",
-                "All cached verses have been removed."
-            )
-            self._update_cache_stats()
-    
     def _save_settings(self) -> None:
         """Save settings and close dialog."""
-        # Validate API key
+        # Validate API keys
         api_key = self.api_key_var.get()
         if api_key and not validate_api_key(api_key):
             messagebox.showerror(
                 "Invalid API Key",
-                "Please enter a valid API key."
+                "Please enter a valid API.Bible API key."
             )
-            self.notebook.select(0)  # Switch to API tab
+            self.notebook.select(0)
             return
         
-        # FIXED: Safe translation parsing with multiple fallback methods
+        nlt_api_key = self.nlt_api_key_var.get()  # <-- ADD THIS
+        
         trans_text = self.default_trans_var.get()
         translation_value = self._parse_translation(trans_text)
         
         # Update settings
         self.settings.api_key = api_key
+        self.settings.nlt_api_key = nlt_api_key  # <-- ADD THIS LINE
         self.settings.default_translation = translation_value
         self.settings.enable_cache = self.enable_cache_var.get()
         self.settings.cache_directory = Path(self.cache_dir_var.get())
