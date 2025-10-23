@@ -19,7 +19,7 @@ from .api_exceptions import (
     APIRateLimitError as RateLimitError, 
     APIAuthenticationError as AuthenticationError
 )
-from .free_bible_fallback import FreeBibleFallback
+from .free_bible_fallback import EnhancedBibleFallback as FreeBibleFallback
 
 logger = get_logger(__name__)
 
