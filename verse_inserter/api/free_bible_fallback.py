@@ -1,8 +1,7 @@
 """
-Enhanced Bible API fallback with intelligent API selection.
+Enhanced Bible API fallback with NLT API as default.
 
-This module provides smart fallback logic that chooses the best API
-based on translation type and available API keys.
+This module uses NLT API as the primary source with free API as fallback.
 
 Author: Kasim Lyee <lyee@codewithlyee.com>
 Company: Softlite Inc.
@@ -21,38 +20,36 @@ logger = get_logger(__name__)
 
 class EnhancedBibleFallback:
     """
-    Smart fallback manager that selects the best API for each request.
+    Smart fallback manager that uses NLT API as default.
     
     Selection logic:
-    1. If NLT translation and NLT API key available -> Use NLT API
-    2. Otherwise -> Use free bible-api.com
-    
-    This provides optimal results while respecting API limitations.
+    1. Always try NLT API first if available
+    2. Fall back to free bible-api.com if NLT fails
     """
     
     def __init__(self, nlt_api_key: Optional[str] = None):
         """
-        Initialize enhanced fallback with optional NLT API key.
+        Initialize enhanced fallback with NLT API key.
         
         Args:
-            nlt_api_key: Optional NLT API key. If provided, will be used for NLT translations.
+            nlt_api_key: NLT API key. Required for NLT API access.
         """
         self.nlt_api_key = nlt_api_key
         self.session: Optional[aiohttp.ClientSession] = None
         self.nlt_client: Optional[NLTAPIClient] = None
         self.free_fallback: Optional[FreeBibleFallback] = None
         
-        logger.info(f"EnhancedBibleFallback initialized (NLT API: {bool(nlt_api_key)})")
+        logger.info(f"EnhancedBibleFallback initialized with NLT API as default")
     
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()
         
-        # Initialize NLT client if key available
+        # Initialize NLT client as primary
         if self.nlt_api_key:
             self.nlt_client = NLTAPIClient(self.nlt_api_key)
             await self.nlt_client.__aenter__()
         
-        # Initialize free fallback
+        # Initialize free fallback as backup
         self.free_fallback = FreeBibleFallback()
         await self.free_fallback.__aenter__()
         
@@ -70,7 +67,7 @@ class EnhancedBibleFallback:
     
     async def fetch_verse(self, reference: VerseReference) -> Optional[Verse]:
         """
-        Fetch verse using the most appropriate API.
+        Fetch verse using NLT API as default with free API fallback.
         
         Args:
             reference: VerseReference to fetch
@@ -79,9 +76,9 @@ class EnhancedBibleFallback:
             Verse object if successful, None if all attempts fail
         """
         try:
-            # Strategy 1: Use NLT API if available and translation is NLT or KJV
-            if self._should_use_nlt_api(reference):
-                logger.info(f"Using NLT API for {reference.canonical_reference}")
+            # Strategy 1: Always try NLT API first if available
+            if self.nlt_client and self.nlt_api_key:
+                logger.info(f"Using NLT API (default) for {reference.canonical_reference}")
                 verse = await self.nlt_client.fetch_verse(reference)
                 
                 if verse:
@@ -90,7 +87,7 @@ class EnhancedBibleFallback:
                     logger.warning(f"NLT API failed, falling back to free API")
             
             # Strategy 2: Use free bible-api.com as fallback
-            logger.info(f"Using free API for {reference.canonical_reference}")
+            logger.info(f"Using free API fallback for {reference.canonical_reference}")
             verse = await self.free_fallback.fetch_verse(reference)
             
             if verse:
@@ -104,24 +101,6 @@ class EnhancedBibleFallback:
             logger.error(f"Enhanced fallback error for {reference.canonical_reference}: {e}")
             return None
     
-    def _should_use_nlt_api(self, reference: VerseReference) -> bool:
-        """
-        Determine if NLT API should be used for this reference.
-        
-        Args:
-            reference: VerseReference to check
-            
-        Returns:
-            True if NLT API should be used, False otherwise
-        """
-        # Check if NLT client is available
-        if not self.nlt_client or not self.nlt_api_key:
-            return False
-        
-        # Check if translation is supported by NLT API
-        supported_translations = [TranslationType.NLT, TranslationType.KJV]
-        return reference.translation in supported_translations
-    
     async def get_fallback_stats(self) -> dict:
         """
         Get statistics about fallback usage.
@@ -132,7 +111,8 @@ class EnhancedBibleFallback:
         stats = {
             "nlt_api_available": bool(self.nlt_api_key),
             "free_api_available": True,
-            "preferred_api": "NLT API" if self.nlt_api_key else "Free API"
+            "primary_api": "NLT API",
+            "fallback_api": "Free API"
         }
         
         # Test API availability
