@@ -146,23 +146,23 @@ class SettingsDialog(ttk.Toplevel):
         tab = ttk.Frame(self.notebook, padding=20)
         self.notebook.add(tab, text="API Configuration")
         
-        # API Key section
-        api_frame = ttk.Labelframe(
+        # API.Bible API Key section
+        api_bible_frame = ttk.Labelframe(
             tab,
             text="API.Bible Configuration",
             padding=15,
             bootstyle=PRIMARY
         )
-        api_frame.pack(fill=X, pady=(0, 15))
+        api_bible_frame.pack(fill=X, pady=(0, 15))
         
         # API Key input
         ttk.Label(
-            api_frame,
-            text="API Key:",
+            api_bible_frame,
+            text="API.Bible API Key:",
             font=("Segoe UI", 10, "bold")
         ).pack(anchor=W, pady=(0, 5))
         
-        key_frame = ttk.Frame(api_frame)
+        key_frame = ttk.Frame(api_bible_frame)
         key_frame.pack(fill=X, pady=(0, 10))
         
         self.api_key_var = tk.StringVar()
@@ -170,7 +170,7 @@ class SettingsDialog(ttk.Toplevel):
             key_frame,
             textvariable=self.api_key_var,
             width=50,
-            show="*"  # Hide key by default
+            show="*"
         )
         self.api_key_entry.pack(side=LEFT, fill=X, expand=YES, padx=(0, 5))
         
@@ -187,11 +187,11 @@ class SettingsDialog(ttk.Toplevel):
         
         # Test API button
         test_btn = ttk.Button(
-            api_frame,
-            text="Test API Connection",
+            api_bible_frame,
+            text="Test API.Bible Connection",
             command=self._test_api_connection,
             bootstyle=INFO,
-            width=20
+            width=25
         )
         test_btn.pack(anchor=W, pady=(0, 10))
         
@@ -201,12 +201,80 @@ class SettingsDialog(ttk.Toplevel):
             "Free tier: 100 requests/minute, 10,000/day"
         )
         ttk.Label(
-            api_frame,
+            api_bible_frame,
             text=help_text,
             font=("Segoe UI", 9),
             bootstyle=SECONDARY,
             wraplength=600
         ).pack(anchor=W)
+        
+        # ============================================
+        # NLT API Key section (NEW - ADD THIS ENTIRE SECTION)
+        # ============================================
+        nlt_api_frame = ttk.Labelframe(
+            tab,
+            text="NLT API Configuration (Optional)",
+            padding=15,
+            bootstyle=SUCCESS
+        )
+        nlt_api_frame.pack(fill=X, pady=(0, 15))
+        
+        # NLT API Key input
+        ttk.Label(
+            nlt_api_frame,
+            text="NLT API Key:",
+            font=("Segoe UI", 10, "bold")
+        ).pack(anchor=W, pady=(0, 5))
+        
+        nlt_key_frame = ttk.Frame(nlt_api_frame)
+        nlt_key_frame.pack(fill=X, pady=(0, 10))
+        
+        self.nlt_api_key_var = tk.StringVar()  # <-- THIS IS THE MISSING LINE
+        self.nlt_api_key_entry = ttk.Entry(
+            nlt_key_frame,
+            textvariable=self.nlt_api_key_var,
+            width=50,
+            show="*"
+        )
+        self.nlt_api_key_entry.pack(side=LEFT, fill=X, expand=YES, padx=(0, 5))
+        
+        # Show/Hide toggle for NLT
+        self.show_nlt_key_var = tk.BooleanVar(value=False)
+        self.show_nlt_key_btn = ttk.Checkbutton(
+            nlt_key_frame,
+            text="Show",
+            variable=self.show_nlt_key_var,
+            command=self._toggle_nlt_api_key_visibility,
+            bootstyle="success-round-toggle"
+        )
+        self.show_nlt_key_btn.pack(side=LEFT)
+        
+        # Test NLT API button
+        test_nlt_btn = ttk.Button(
+            nlt_api_frame,
+            text="Test NLT API Connection",
+            command=self._test_nlt_api_connection,
+            bootstyle=SUCCESS,
+            width=25
+        )
+        test_nlt_btn.pack(anchor=W, pady=(0, 10))
+        
+        # NLT Help text
+        nlt_help_text = (
+            "Get your NLT API key from: https://api.nlt.to\n"
+            "Required for NLT translation. Use 'TEST' for testing (limited to 50 verses/request, 500 requests/day)\n"
+            "Supports: NLT, NLT-UK, KJV (via NLT API)"
+        )
+        ttk.Label(
+            nlt_api_frame,
+            text=nlt_help_text,
+            font=("Segoe UI", 9),
+            bootstyle=SECONDARY,
+            wraplength=600
+        ).pack(anchor=W)
+        # ============================================
+        # End of NLT API section
+        # ============================================
         
         # Default translation
         trans_frame = ttk.Labelframe(
