@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     
     # API Configuration
     api_key: str = Field(default="", description="API.Bible key")
+    nlt_api_key: str = Field(default="", description="NLT API key")
     default_translation: str = Field(default="NIV", description="Default translation")
     
     # Cache Settings
