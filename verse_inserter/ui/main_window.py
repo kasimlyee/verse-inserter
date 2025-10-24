@@ -373,11 +373,11 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
         verses_dict: Dict[str, Any] = {}
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+        unique_refs = self.placeholder_parser.extract_unique_references(placeholders)
     
         try:
             async def fetch_all() -> None:
                 async with BibleAPIClient(self.settings.api_key) as client:
-                    unique_refs = self.placeholder_parser.extract_unique_references(placeholders)
                     total = len(unique_refs) or 1
                     
                     self._log_message(f"📡 Fetching {len(unique_refs)} verses (with fallback)...")
