@@ -33,6 +33,8 @@ python-dotenv = "^1.0.1"
 Pillow = "^10.2.0"
 colorlog = "^6.8.2"
 pyinstaller = "^6.16.0"
+beautifulsoup4 = "^4.14.2"
+lxml = "^6.0.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

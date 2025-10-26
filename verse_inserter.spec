@@ -3,11 +3,20 @@
 block_cipher = None
 
 a = Analysis(
-    ['verse_inserter/__main__.py'],
+    ['launch.py'],  
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[
+        ('verse_inserter/*.py', 'verse_inserter'),
+        ('verse_inserter/config/*.py', 'verse_inserter/config'),
+        ('verse_inserter/ui/*.py', 'verse_inserter/ui'), 
+        ('verse_inserter/utils/*.py', 'verse_inserter/utils'),
+    ],
     hiddenimports=[
+        'verse_inserter.config.settings',  
+        'verse_inserter.ui.main_window',
+        'verse_inserter.utils.logger', 
+        'verse_inserter.version',
         'tkinter',
         'tkinter.ttk',
         'tkinter.filedialog',
@@ -60,5 +69,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,
+    icon='icon.ico',
 )
