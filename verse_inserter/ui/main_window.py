@@ -377,7 +377,7 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
     
         try:
             async def fetch_all() -> None:
-                async with BibleAPIClient(self.settings.api_key) as client:
+                async with BibleAPIClient(self.settings.api_key, self.settings.nlt_api_key) as client:
                     total = len(unique_refs) or 1
                     
                     self._log_message(f"📡 Fetching {len(unique_refs)} verses (with fallback)...")

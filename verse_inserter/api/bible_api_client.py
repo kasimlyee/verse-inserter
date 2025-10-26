@@ -47,7 +47,7 @@ class BibleAPIClient:
     
     BASE_URL = "https://api.scripture.api.bible"
     
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str,  nlt_api_key: Optional[str] = None):
         """
         Initialize API client.
         
@@ -61,6 +61,7 @@ class BibleAPIClient:
             raise ValueError("API key cannot be empty")
         
         self.api_key = api_key.strip()
+        self.nlt_api_key = nlt_api_key
         self.session: Optional[aiohttp.ClientSession] = None
         
         logger.info("BibleAPIClient initialized")
@@ -368,7 +369,7 @@ class BibleAPIClient:
         
         # Primary failed, try free fallback
         try:
-            async with FreeBibleFallback() as free_client:
+            async with FreeBibleFallback(self.nlt_api_key) as free_client:
                 verse = await free_client.fetch_verse(reference)
                 if verse and verse.text:
                     logger.info(f"Free fallback success: {reference.canonical_reference}")
