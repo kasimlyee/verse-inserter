@@ -145,27 +145,31 @@ class NLTAPIClient:
         return quote(ref, safe=':-')
     
     def _extract_verse_text(self, html_content: str) -> str:
-        """Extract and clean verse text from NLT API HTML output."""
+        """Extract clean Bible text from NLT HTML response (handles all known variants)."""
         soup = BeautifulSoup(html_content, "html.parser")
     
-        # Find all verse paragraphs (handle both styles)
-        paragraphs = soup.find_all("p", class_=re.compile(r"body.*"))
-        verses = []
+        # Look for any <p> tags with class starting with "body"
+        paragraphs = soup.find_all("p", class_=re.compile(r"^body"))
     
+        verses = []
         for p in paragraphs:
-            # Remove unwanted tags (footnotes, references)
+            # Remove notes, verse numbers, and inline markup
             for tag in p.find_all(["a", "span"], class_=["a-tn", "tn", "vn"]):
                 tag.decompose()
-    
-            # Remove inline formatting (font, em, sup, etc.)
             for tag in p.find_all(["font", "em", "sup", "i"]):
                 tag.unwrap()
     
+            # Clean text
             text = p.get_text(separator=" ", strip=True)
-            text = unescape(re.sub(r'\s+', ' ', text).strip())
-    
+            text = unescape(re.sub(r"\s+", " ", text))
             if text:
                 verses.append(text)
+    
+        # If nothing matched, try backup method (in case NLT changed HTML again)
+        if not verses:
+            raw_text = soup.get_text(separator=" ", strip=True)
+            raw_text = re.sub(r"\s+", " ", raw_text)
+            return unescape(raw_text)
     
         return " ".join(verses)
 
