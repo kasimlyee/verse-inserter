@@ -181,6 +181,12 @@ class NLTAPIClient:
         
         # Remove verse numbers in square brackets [1], [2], etc.
         text = re.sub(r'\[\d+\]', '', text)
+
+        # Remove square bracket notes like [1], [a]
+        text = re.sub(r'\[\w+\]', '', text)
+
+        # Remove inline footnotes or references like "* 4:9 Or a Sabbath rest."
+        text = re.sub(r'\*\s*\d+:\d+.*?\.', '', text)
         
         # Remove leading verse numbers like "16 "
         text = re.sub(r'^\d+\s+', '', text)
