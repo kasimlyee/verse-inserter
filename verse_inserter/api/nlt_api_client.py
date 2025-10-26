@@ -147,31 +147,52 @@ class NLTAPIClient:
     def _extract_verse_text(self, html_content: str) -> str:
         """Extract clean Bible text from NLT HTML response (handles all known variants)."""
         soup = BeautifulSoup(html_content, "html.parser")
-    
-        # Look for any <p> tags with class starting with "body"
-        paragraphs = soup.find_all("p", class_=re.compile(r"^body"))
-    
-        verses = []
-        for p in paragraphs:
-            # Remove notes, verse numbers, and inline markup
-            for tag in p.find_all(["a", "span"], class_=["a-tn", "tn", "vn"]):
+        
+        # Look for verse_export tag which contains the actual verse text
+        verse_export = soup.find("verse_export")
+        if verse_export:
+            # Remove verse numbers and other unwanted elements
+            for tag in verse_export.find_all(["span"], class_=["vn"]):
                 tag.decompose()
-            for tag in p.find_all(["font", "em", "sup", "i"]):
-                tag.unwrap()
-    
-            # Clean text
-            text = p.get_text(separator=" ", strip=True)
-            text = unescape(re.sub(r"\s+", " ", text))
-            if text:
-                verses.append(text)
-    
-        # If nothing matched, try backup method (in case NLT changed HTML again)
-        if not verses:
-            raw_text = soup.get_text(separator=" ", strip=True)
-            raw_text = re.sub(r"\s+", " ", raw_text)
-            return unescape(raw_text)
-    
-        return " ".join(verses)
+            
+            # Get all paragraph tags within verse_export
+            paragraphs = verse_export.find_all("p")
+            verses = []
+            for p in paragraphs:
+                # Clean text - remove any remaining markup
+                for tag in p.find_all():
+                    tag.unwrap()
+                
+                text = p.get_text(separator=" ", strip=True)
+                text = unescape(re.sub(r"\s+", " ", text))
+                if text:
+                    verses.append(text)
+            
+            if verses:
+                return " ".join(verses)
+        
+        # Fallback to looking for any poet class paragraphs
+        poet_paragraphs = soup.find_all("p", class_=re.compile(r"^poet"))
+        if poet_paragraphs:
+            verses = []
+            for p in poet_paragraphs:
+                # Remove verse numbers
+                for tag in p.find_all(["span"], class_=["vn"]):
+                    tag.decompose()
+                
+                # Clean text
+                text = p.get_text(separator=" ", strip=True)
+                text = unescape(re.sub(r"\s+", " ", text))
+                if text:
+                    verses.append(text)
+            
+            if verses:
+                return " ".join(verses)
+        
+        # Final fallback - extract all text and try to clean it
+        raw_text = soup.get_text(separator=" ", strip=True)
+        raw_text = re.sub(r"\s+", " ", raw_text)
+        return unescape(raw_text)
 
     
     def _clean_verse_text(self, text: str) -> str:
