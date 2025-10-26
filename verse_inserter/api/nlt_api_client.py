@@ -135,7 +135,7 @@ class NLTAPIClient:
         Returns:
             Formatted reference string
         """
-        book = reference.book.replace(" ", "")
+        book = reference.book.strip() # I think here i should be keeping 
         
         if reference.end_verse:
             ref = f"{book} {reference.chapter}:{reference.start_verse}-{reference.end_verse}"
