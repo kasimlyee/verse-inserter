@@ -147,6 +147,14 @@ class NLTAPIClient:
     def _extract_verse_text(self, html_content: str) -> str:
         """Extract clean Bible text from NLT HTML response (handles all known variants)."""
         soup = BeautifulSoup(html_content, "html.parser")
+
+         # Remove the header/title elements first
+        for header in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"]):
+            header.decompose()
+        
+        # Remove the <title> tag
+        for title_tag in soup.find_all("title"):
+            title_tag.decompose()
         
         # Look for verse_export tag which contains the actual verse text
         verse_export = soup.find("verse_export")
@@ -154,6 +162,7 @@ class NLTAPIClient:
             # Remove verse numbers and other unwanted elements
             for tag in verse_export.find_all(["span"], class_=["vn"]):
                 tag.decompose()
+            
             
             # Get all paragraph tags within verse_export
             paragraphs = verse_export.find_all("p")
