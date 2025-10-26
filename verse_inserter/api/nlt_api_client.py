@@ -12,6 +12,7 @@ import re
 from typing import Optional
 from html import unescape
 from bs4 import BeautifulSoup
+from urllib.parse import quote
 from ..models.verse import Verse, VerseReference, TranslationType
 from ..utils.logger import get_logger
 
@@ -137,9 +138,11 @@ class NLTAPIClient:
         book = reference.book.replace(" ", "")
         
         if reference.end_verse:
-            return f"{book}.{reference.chapter}:{reference.start_verse}-{reference.end_verse}"
+            ref = f"{book} {reference.chapter}:{reference.start_verse}-{reference.end_verse}"
         else:
-            return f"{book}.{reference.chapter}:{reference.start_verse}"
+            ref = f"{book} {reference.chapter}:{reference.start_verse}"
+
+        return quote(ref, safe='')
     
     def _extract_verse_text(self, html_content: str) -> str:
         """
