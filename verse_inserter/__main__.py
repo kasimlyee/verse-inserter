@@ -18,10 +18,10 @@ import sys
 import traceback
 from pathlib import Path
 
-from .config.settings import Settings
-from .ui.main_window import MainWindow
-from .utils.logger import get_logger
-from .version import __version__, __author__, __email__
+from config.settings import Settings
+from ui.main_window import MainWindow
+from utils.logger import get_logger
+from version import __version__, __author__, __email__
 
 # Initialize logger
 logger = get_logger(__name__)
