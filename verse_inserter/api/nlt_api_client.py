@@ -11,6 +11,7 @@ import asyncio
 import re
 from typing import Optional
 from html import unescape
+from bs4 import BeautifulSoup
 from ..models.verse import Verse, VerseReference, TranslationType
 from ..utils.logger import get_logger
 
@@ -142,42 +143,36 @@ class NLTAPIClient:
     
     def _extract_verse_text(self, html_content: str) -> str:
         """
-        Extract verse text from HTML response.
-        
-        The NLT API returns HTML with verse text in specific tags.
-        We need to extract the text and clean it up.
-        
-        Args:
-            html_content: Raw HTML response from API
-            
-        Returns:
-            Cleaned verse text
+        Extracts and cleans the verse text from the NLT API HTML output.
         """
-        # Remove HTML tags but keep the text
-        # The NLT API typically wraps verses in <div> or <p> tags
-        
-        # Remove script and style elements
-        html_content = re.sub(r'<script[^>]*>.*?</script>', '', html_content, flags=re.DOTALL)
-        html_content = re.sub(r'<style[^>]*>.*?</style>', '', html_content, flags=re.DOTALL)
-        
-        # Remove HTML comments
-        html_content = re.sub(r'<!--.*?-->', '', html_content, flags=re.DOTALL)
-        
-        # Extract text from common verse containers
-        # Look for content in div or p tags with class containing "verse" or "text"
-        verse_pattern = r'<(?:div|p)[^>]*class="[^"]*(?:verse|text|content)[^"]*"[^>]*>(.*?)</(?:div|p)>'
-        matches = re.findall(verse_pattern, html_content, re.DOTALL)
-        
-        if matches:
-            text = ' '.join(matches)
-        else:
-            # Fallback: just strip all tags
-            text = re.sub(r'<[^>]+>', '', html_content)
-        
-        # Clean up the text
-        text = self._clean_verse_text(text)
-        
-        return text
+        # Use BeautifulSoup for accurate parsing
+        soup = BeautifulSoup(html_content, "html.parser")
+    
+        # Find all verse paragraphs
+        paragraphs = soup.find_all("p", class_="body-ch-hd")
+        verses = []
+    
+        for p in paragraphs:
+            # Remove footnotes and cross references (a-tn, tn)
+            for tag in p.find_all(["a", "span"], class_=["a-tn", "tn"]):
+                tag.decompose()
+    
+            # Remove verse numbers and formatting tags (vn, font, em, etc.)
+            for tag in p.find_all(["span", "font", "em"], class_=["vn"]):
+                tag.decompose()
+    
+            # Get clean text
+            text = p.get_text(separator=" ", strip=True)
+            text = unescape(text)
+    
+            # Clean extra whitespace
+            text = re.sub(r'\s+', ' ', text).strip()
+    
+            if text:
+                verses.append(text)
+    
+        # Join multiple verses (if any)
+        return " ".join(verses)
     
     def _clean_verse_text(self, text: str) -> str:
         """Clean and normalize verse text."""
