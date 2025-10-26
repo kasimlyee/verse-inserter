@@ -124,8 +124,8 @@ class NLTAPIClient:
         """
         Format reference for NLT API.
         
-        Converts "John 3:16" to "John.3.16"
-        Converts "John 3:16-17" to "John.3.16-17"
+        Converts "John 3:16" to "John.3:16"
+        Converts "John 3:16-17" to "John.3:16-17"
         
         Args:
             reference: VerseReference to format
@@ -136,9 +136,9 @@ class NLTAPIClient:
         book = reference.book.replace(" ", "")
         
         if reference.end_verse:
-            return f"{book}.{reference.chapter}.{reference.start_verse}-{reference.end_verse}"
+            return f"{book}.{reference.chapter}:{reference.start_verse}-{reference.end_verse}"
         else:
-            return f"{book}.{reference.chapter}.{reference.start_verse}"
+            return f"{book}.{reference.chapter}:{reference.start_verse}"
     
     def _extract_verse_text(self, html_content: str) -> str:
         """
