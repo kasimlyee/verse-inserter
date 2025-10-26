@@ -13,6 +13,8 @@
 
 VerseInserter is a Windows desktop application that automatically inserts Bible verses into Microsoft Word documents. Built with Python architecture, it offers high performance, security, and reliability.
 
+![VerseInserter Banner](docs/images/banner.png)
+
 ### Key Features
 
 - **Automatic Verse Insertion**: Replaces `{{John 3:16}}` placeholders with actual scripture text
