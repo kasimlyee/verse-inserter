@@ -142,40 +142,33 @@ class NLTAPIClient:
         else:
             ref = f"{book} {reference.chapter}:{reference.start_verse}"
 
-        return quote(ref, safe='')
+        return quote(ref, safe=':-')
     
     def _extract_verse_text(self, html_content: str) -> str:
-        """
-        Extracts and cleans the verse text from the NLT API HTML output.
-        """
-        # Use BeautifulSoup for accurate parsing
+        """Extract and clean verse text from NLT API HTML output."""
         soup = BeautifulSoup(html_content, "html.parser")
     
-        # Find all verse paragraphs
-        paragraphs = soup.find_all("p", class_="body-ch-hd")
+        # Find all verse paragraphs (handle both styles)
+        paragraphs = soup.find_all("p", class_=re.compile(r"body.*"))
         verses = []
     
         for p in paragraphs:
-            # Remove footnotes and cross references (a-tn, tn)
-            for tag in p.find_all(["a", "span"], class_=["a-tn", "tn"]):
+            # Remove unwanted tags (footnotes, references)
+            for tag in p.find_all(["a", "span"], class_=["a-tn", "tn", "vn"]):
                 tag.decompose()
     
-            # Remove verse numbers and formatting tags (vn, font, em, etc.)
-            for tag in p.find_all(["span", "font", "em"], class_=["vn"]):
-                tag.decompose()
+            # Remove inline formatting (font, em, sup, etc.)
+            for tag in p.find_all(["font", "em", "sup", "i"]):
+                tag.unwrap()
     
-            # Get clean text
             text = p.get_text(separator=" ", strip=True)
-            text = unescape(text)
-    
-            # Clean extra whitespace
-            text = re.sub(r'\s+', ' ', text).strip()
+            text = unescape(re.sub(r'\s+', ' ', text).strip())
     
             if text:
                 verses.append(text)
     
-        # Join multiple verses (if any)
         return " ".join(verses)
+
     
     def _clean_verse_text(self, text: str) -> str:
         """Clean and normalize verse text."""
