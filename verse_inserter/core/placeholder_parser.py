@@ -1,5 +1,5 @@
 """
-Advanced placeholder detection and parsing engine.
+Placeholder detection and parsing engine.
 
 Implements robust, regex-based parsing of scripture placeholders with comprehensive
 error handling, normalization, and support for various reference formats.
@@ -77,14 +77,21 @@ class PlaceholderParser:
         - Comprehensive error reporting
         - Performance optimization through regex compilation
     
+    Supported Formats:
+        - {{John 3:16}} - Double braces (primary)
+        - (John 3:16) - Parentheses
+        - [John 3:16] - Square brackets
+        - #John 3:16 - Hash marker
+        - John 3:16 - Plain text (when enabled)
+    
     Example:
         >>> parser = PlaceholderParser()
-        >>> placeholders = parser.parse_text("Check {{John 3:16}} and {{Psalm 23:1-3}}")
+        >>> placeholders = parser.parse_text("Check {{John 3:16}} and #Psalm 23:1-3")
         >>> len(placeholders)
         2
     """
     
-    # Placeholder pattern: {{Book Chapter:Verse}} or {{Book Chapter:Verse-Verse}}
+    # Primary placeholder pattern: {{Book Chapter:Verse}} or {{Book Chapter:Verse-Verse}}
     PLACEHOLDER_PATTERN = re.compile(
         r"\{\{\s*"  # Opening braces with optional whitespace
         r"((?:\d\s*)?\w+(?:\s+\w+)*)"  # Book name (supports numbers and multi-word)
@@ -113,12 +120,39 @@ class PlaceholderParser:
             r"\s*\]",
             re.IGNORECASE
         ),
+        # Pattern with hash marker: #John 3:16
+        re.compile(
+            r"#\s*"
+            r"((?:\d\s*)?\w+(?:\s+\w+)*)\s+(\d+)\s*:\s*(\d+)(?:\s*-\s*(\d+))?"
+            r"(?=\s|$|[.,;!?])",  # Must be followed by whitespace, end, or punctuation
+            re.IGNORECASE
+        ),
     ]
+    
+    # Plain text pattern (more conservative to avoid false positives)
+    PLAIN_TEXT_PATTERN = re.compile(
+        r"(?<![#\[\{(\w])"  # Negative lookbehind: not preceded by markers or word chars
+        r"\b"  # Word boundary
+        r"((?:\d\s*)?(?:Genesis|Exodus|Leviticus|Numbers|Deuteronomy|Joshua|Judges|Ruth|"
+        r"1\s*Samuel|2\s*Samuel|1\s*Kings|2\s*Kings|1\s*Chronicles|2\s*Chronicles|"
+        r"Ezra|Nehemiah|Esther|Job|Psalms?|Proverbs|Ecclesiastes|Song\s+of\s+Solomon|"
+        r"Isaiah|Jeremiah|Lamentations|Ezekiel|Daniel|Hosea|Joel|Amos|Obadiah|Jonah|"
+        r"Micah|Nahum|Habakkuk|Zephaniah|Haggai|Zechariah|Malachi|"
+        r"Matthew|Mark|Luke|John|Acts|Romans|1\s*Corinthians|2\s*Corinthians|"
+        r"Galatians|Ephesians|Philippians|Colossians|1\s*Thessalonians|2\s*Thessalonians|"
+        r"1\s*Timothy|2\s*Timothy|Titus|Philemon|Hebrews|James|1\s*Peter|2\s*Peter|"
+        r"1\s*John|2\s*John|3\s*John|Jude|Revelation))"
+        r"\s+(\d+)\s*:\s*(\d+)(?:\s*-\s*(\d+))?"
+        r"\b"  # Word boundary
+        r"(?![}\]\)])",  # Negative lookahead: not followed by closing markers
+        re.IGNORECASE
+    )
     
     def __init__(
         self,
         default_translation: TranslationType = TranslationType.NIV,
         enable_alternative_formats: bool = True,
+        enable_plain_text: bool = False,
         normalize_whitespace: bool = True,
     ):
         """
@@ -127,10 +161,12 @@ class PlaceholderParser:
         Args:
             default_translation: Default Bible translation for parsed references
             enable_alternative_formats: Whether to detect alternative placeholder formats
+            enable_plain_text: Whether to detect plain text references (use carefully)
             normalize_whitespace: Whether to normalize whitespace in book names
         """
         self.default_translation = default_translation
         self.enable_alternative_formats = enable_alternative_formats
+        self.enable_plain_text = enable_plain_text
         self.normalize_whitespace = normalize_whitespace
         
         # Cache for parsed references to avoid re-parsing
@@ -141,7 +177,8 @@ class PlaceholderParser:
         
         logger.info(
             f"PlaceholderParser initialized with translation={default_translation.name}, "
-            f"alternative_formats={enable_alternative_formats}"
+            f"alternative_formats={enable_alternative_formats}, "
+            f"plain_text={enable_plain_text}"
         )
     
     def parse_text(
@@ -167,18 +204,29 @@ class PlaceholderParser:
             
         Example:
             >>> parser = PlaceholderParser()
-            >>> text = "See {{John 3:16}} and {{Genesis 1:1-3}}"
+            >>> text = "See {{John 3:16}}, #Genesis 1:1, and (Psalm 23:1-3)"
             >>> placeholders = parser.parse_text(text)
             >>> [p.reference.canonical_reference for p in placeholders]
-            ['John 3:16', 'Genesis 1:1-3']
+            ['John 3:16', 'Genesis 1:1', 'Psalm 23:1-3']
         """
         placeholders: List[Placeholder] = []
         seen_references: Set[str] = set()
         
-        # Primary pattern matching
-        for match in self.PLACEHOLDER_PATTERN.finditer(text):
+        # Track positions to avoid overlapping matches
+        used_positions: Set[Tuple[int, int]] = set()
+        
+        def add_placeholder_if_valid(match, para_idx, pos_offset):
+            """Helper to add placeholder if it doesn't overlap with existing ones."""
+            start, end = match.span()
+            
+            # Check for overlap with existing placeholders
+            for used_start, used_end in used_positions:
+                if not (end <= used_start or start >= used_end):
+                    # Overlapping match, skip it
+                    return
+            
             placeholder = self._create_placeholder_from_match(
-                match, paragraph_index, position_offset
+                match, para_idx, pos_offset
             )
             
             if placeholder:
@@ -189,22 +237,23 @@ class PlaceholderParser:
                 else:
                     seen_references.add(ref_key)
                     placeholders.append(placeholder)
+                    used_positions.add((start, end))
                     self._stats.books_referenced.add(placeholder.reference.book)
+        
+        # Primary pattern matching (highest priority)
+        for match in self.PLACEHOLDER_PATTERN.finditer(text):
+            add_placeholder_if_valid(match, paragraph_index, position_offset)
         
         # Alternative pattern matching if enabled
         if self.enable_alternative_formats:
             for pattern in self.ALTERNATIVE_PATTERNS:
                 for match in pattern.finditer(text):
-                    placeholder = self._create_placeholder_from_match(
-                        match, paragraph_index, position_offset
-                    )
-                    
-                    if placeholder:
-                        ref_key = placeholder.unique_key
-                        if ref_key not in seen_references:
-                            seen_references.add(ref_key)
-                            placeholders.append(placeholder)
-                            self._stats.books_referenced.add(placeholder.reference.book)
+                    add_placeholder_if_valid(match, paragraph_index, position_offset)
+        
+        # Plain text pattern matching (lowest priority, most conservative)
+        if self.enable_plain_text:
+            for match in self.PLAIN_TEXT_PATTERN.finditer(text):
+                add_placeholder_if_valid(match, paragraph_index, position_offset)
         
         # Update statistics
         self._stats.total_found += len(placeholders)
@@ -282,7 +331,7 @@ class PlaceholderParser:
         Parse a single placeholder text with specified translation.
         
         Args:
-            text: The raw placeholder text (e.g., "{{John 3:16}}")
+            text: The raw placeholder text (e.g., "{{John 3:16}}", "#John 3:16")
             translation: Bible translation to use (defaults to instance default)
             
         Returns:
@@ -292,15 +341,15 @@ class PlaceholderParser:
             translation = self.default_translation
         
         try:
-            # Extract reference from placeholder (e.g., "{{John 3:16}}" -> "John 3:16")
+            # Extract reference from placeholder
             reference_text = self._extract_reference(text)
             if reference_text:
                 reference = VerseReference.parse(reference_text, translation=translation)
                 return Placeholder(
                     raw_text=text,
                     reference=reference,
-                    position=0,  # Will be set properly in parse_text
-                    paragraph_index=0  # Will be set properly in parse_text
+                    position=0,
+                    paragraph_index=0
                 )
                 
         except Exception as e:
@@ -338,7 +387,7 @@ class PlaceholderParser:
         Extract scripture reference from placeholder text.
         
         Args:
-            placeholder_text: Raw placeholder (e.g., "{{John 3:16}}")
+            placeholder_text: Raw placeholder (e.g., "{{John 3:16}}", "#John 3:16")
             
         Returns:
             Extracted reference or None
@@ -347,8 +396,6 @@ class PlaceholderParser:
         match = self.PLACEHOLDER_PATTERN.match(placeholder_text.strip())
         if match:
             book, chapter, start_verse, end_verse = match.groups()
-            
-            # Reconstruct the reference without the brackets
             reference = f"{book} {chapter}:{start_verse}"
             if end_verse:
                 reference += f"-{end_verse}"
@@ -364,6 +411,16 @@ class PlaceholderParser:
                     if end_verse:
                         reference += f"-{end_verse}"
                     return reference
+        
+        # Try plain text pattern
+        if self.enable_plain_text:
+            match = self.PLAIN_TEXT_PATTERN.match(placeholder_text.strip())
+            if match:
+                book, chapter, start_verse, end_verse = match.groups()
+                reference = f"{book} {chapter}:{start_verse}"
+                if end_verse:
+                    reference += f"-{end_verse}"
+                return reference
         
         return None
     
@@ -548,47 +605,54 @@ class PlaceholderParser:
         
         placeholders: List[Placeholder] = []
         seen_references: Set[str] = set()
+        used_positions: Set[Tuple[int, int]] = set()
         
-        # Primary pattern matching
-        for match in self.PLACEHOLDER_PATTERN.finditer(text):
+        def add_placeholder_if_valid(match, para_idx, pos_offset, trans):
+            """Helper to add placeholder if it doesn't overlap with existing ones."""
+            start, end = match.span()
+            
+            # Check for overlap
+            for used_start, used_end in used_positions:
+                if not (end <= used_start or start >= used_end):
+                    return
+            
             placeholder = self._create_placeholder_from_match_with_translation(
-                match, paragraph_index, position_offset, translation
+                match, para_idx, pos_offset, trans
             )
             
             if placeholder:
-                # Track duplicates
                 ref_key = placeholder.unique_key
                 if ref_key in seen_references:
                     self._stats.duplicate_count += 1
                 else:
                     seen_references.add(ref_key)
                     placeholders.append(placeholder)
+                    used_positions.add((start, end))
                     self._stats.books_referenced.add(placeholder.reference.book)
         
-        # Alternative pattern matching if enabled
+        # Primary pattern
+        for match in self.PLACEHOLDER_PATTERN.finditer(text):
+            add_placeholder_if_valid(match, paragraph_index, position_offset, translation)
+        
+        # Alternative patterns
         if self.enable_alternative_formats:
             for pattern in self.ALTERNATIVE_PATTERNS:
                 for match in pattern.finditer(text):
-                    placeholder = self._create_placeholder_from_match_with_translation(
-                        match, paragraph_index, position_offset, translation
-                    )
-                    
-                    if placeholder:
-                        ref_key = placeholder.unique_key
-                        if ref_key not in seen_references:
-                            seen_references.add(ref_key)
-                            placeholders.append(placeholder)
-                            self._stats.books_referenced.add(placeholder.reference.book)
+                    add_placeholder_if_valid(match, paragraph_index, position_offset, translation)
+        
+        # Plain text pattern
+        if self.enable_plain_text:
+            for match in self.PLAIN_TEXT_PATTERN.finditer(text):
+                add_placeholder_if_valid(match, paragraph_index, position_offset, translation)
         
         # Update statistics
         self._stats.total_found += len(placeholders)
         self._stats.unique_references = len(seen_references)
         
-        # Sort by position for sequential processing
         placeholders.sort(key=lambda p: p.position)
         
         logger.debug(
-            f"Parsed {len(placeholders)} placeholders from text with translation {translation.name}"
+            f"Parsed {len(placeholders)} placeholders with translation {translation.name}"
         )
         
         return placeholders
@@ -616,7 +680,7 @@ class PlaceholderParser:
                 chapter=int(chapter),
                 start_verse=int(start_verse),
                 end_verse=int(end_verse) if end_verse else None,
-                translation=translation,  # Use the specified translation
+                translation=translation,
             )
             
             # Create placeholder
