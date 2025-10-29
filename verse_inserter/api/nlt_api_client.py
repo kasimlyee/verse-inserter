@@ -149,59 +149,61 @@ class NLTAPIClient:
         soup = BeautifulSoup(html_content, "html.parser")
 
          # Remove the header/title elements first
-        for header in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"]):
-            header.decompose()
+        for unwanted in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "title"]):
+            unwanted.decompose()
         
-        # Remove the <title> tag
-        for title_tag in soup.find_all("title"):
-            title_tag.decompose()
         
         # Look for verse_export tag which contains the actual verse text
         verse_export = soup.find("verse_export")
-        if verse_export:
-            # Remove verse numbers and other unwanted elements
-            for tag in verse_export.find_all(["span"], class_=["vn"]):
-                tag.decompose()
+
+        if not verse_exports:
+            logger.warning("No verse_export tags found in HTML")
+            return ""
+    
+        verses = []
+        
+        for verse_export in verse_exports:
             
+            # Remove footnote links and their content
+            for footnote in verse_export.find_all("a", class_="a-tn"):
+                footnote.decompose()
+            for footnote_text in verse_export.find_all("span", class_="tn"):
+                footnote_text.decompose()
+
+             # Remove verse numbers
+            #for vn in verse_export.find_all("span", class_="vn"):
+               # vn.decompose()
             
             # Get all paragraph tags within verse_export
             paragraphs = verse_export.find_all("p")
-            verses = []
+        
+            verses_parts = []
             for p in paragraphs:
-                # Clean text - remove any remaining markup
+               # Unwrap any remaining tags
                 for tag in p.find_all():
                     tag.unwrap()
                 
                 text = p.get_text(separator=" ", strip=True)
-                text = unescape(re.sub(r"\s+", " ", text))
+               # text = unescape(re.sub(r"\s+", " ", text))
                 if text:
-                    verses.append(text)
+                    verse_parts.append(text)
             
-            if verses:
-                return " ".join(verses)
-        
-        # Fallback to looking for any poet class paragraphs
-        poet_paragraphs = soup.find_all("p", class_=re.compile(r"^poet"))
-        if poet_paragraphs:
-            verses = []
-            for p in poet_paragraphs:
-                # Remove verse numbers
-                for tag in p.find_all(["span"], class_=["vn"]):
-                    tag.decompose()
+            if verse_parts:
+                # Join parts of the same verse with space
+                verse_text = " ".join(verse_parts)
+                verses.append(verse_text)
                 
-                # Clean text
-                text = p.get_text(separator=" ", strip=True)
-                text = unescape(re.sub(r"\s+", " ", text))
-                if text:
-                    verses.append(text)
-            
-            if verses:
-                return " ".join(verses)
-        
-        # Final fallback - extract all text and try to clean it
-        raw_text = soup.get_text(separator=" ", strip=True)
-        raw_text = re.sub(r"\s+", " ", raw_text)
-        return unescape(raw_text)
+        if not verses:
+            logger.warning("No verse text extracted")
+            return ""
+
+        # Join all verses with space
+        final_text = " ".join(verses)
+
+        # Clean up whitespace and HTML entities
+        final_text = unescape(re.sub(r"\s+", " ", final_text))
+                
+        return final_text.strip()
 
     
     def _clean_verse_text(self, text: str) -> str:
