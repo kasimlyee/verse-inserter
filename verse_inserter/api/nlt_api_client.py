@@ -177,7 +177,7 @@ class NLTAPIClient:
             # Get all paragraph tags within verse_export
             paragraphs = verse_export.find_all("p")
         
-            verses_parts = []
+            verse_parts = []
             for p in paragraphs:
                # Unwrap any remaining tags
                 for tag in p.find_all():
