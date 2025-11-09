@@ -149,7 +149,7 @@ class NLTAPIClient:
         soup = BeautifulSoup(html_content, "html.parser")
 
          # Remove the header/title elements first
-        for unwanted in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "title"]):
+        for unwanted in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "title","script", "style", "link", "meta"]):
             unwanted.decompose()
         
         
@@ -161,52 +161,74 @@ class NLTAPIClient:
             return ""
     
         verses = []
+
+        for vtag in verse_export_tags:
+            vn = vtag.get("vn")                     # e.g. "1"
+            if not vn or not vn.isdigit():
+                continue
+
+            for fn in vtag.select("a.a-tn, span.tn"):
+                fn.decompose()
+
+            if vn == "1":
+                chapter_heading = vtag.find(class_="chapter-number")
+                if chapter_heading:
+                    verses["chapter_title"] = chapter_heading.get_text(strip=True)
+
+                subhead = vtag.find(class_="subhead")
+                if subhead:
+                    verses["section_title"] = subhead.get_text(strip=True)
+            raw = vtag.get_text(separator=" ", strip=True)
+            #raw = re.sub(rf'^\s*{vn}\s+', '', raw)
+
+            clean = unescape(re.sub(r"\s+", " ", raw)).strip()
+            if clean:
+                verses[vn] = clean
         
-        for verse_export in verse_export_tags:
+        #for verse_export in verse_export_tags:
 
             # We make a copy to avoid issues with modifying while iterating
-            verse_copy = verse_export
+           # verse_copy = verse_export
             
             # Remove footnote links and their content
-            for footnote in verse_copy.find_all("a", class_="a-tn"):
-                footnote.decompose()
-            for footnote_text in verse_copy.find_all("span", class_="tn"):
-                footnote_text.decompose()
+           # for footnote in verse_copy.find_all("a", class_="a-tn"):
+                #footnote.decompose()
+            #for footnote_text in verse_copy.find_all("span", class_="tn"):
+                #footnote_text.decompose()
 
              # Remove verse numbers
             #for vn in verse_export.find_all("span", class_="vn"):
                # vn.decompose()
             
             # Get all paragraph tags within verse_export
-            paragraphs = verse_copy.find_all("p")
-        
-            verse_parts = []
-            for p in paragraphs:
+            # verse_parts = []
+           # for p in paragraphs:
                # Unwrap any remaining tags
                # for tag in p.find_all():
                 #    tag.unwrap()
                 
-                text = p.get_text(separator=" ", strip=True)
+               # text = p.get_text(separator=" ", strip=True)
                # text = unescape(re.sub(r"\s+", " ", text))
-                if text:
-                    verse_parts.append(text)
+               # if text:
+                    #verse_parts.append(text)
             
-            if verse_parts:
+            #if verse_parts:
                 # Join parts of the same verse with space
-                verse_text = " ".join(verse_parts)
-                verses.append(verse_text)
+                #verse_text = " ".join(verse_parts)
+                #verses.append(verse_text)
                 
-        if not verses:
-            logger.warning("No verse text extracted")
-            return ""
+        #if not verses:
+            #logger.warning("No verse text extracted")
+           # return ""
 
         # Join all verses with space
-        final_text = " ".join(verses)
+       # final_text = " ".join(verses)
 
         # Clean up whitespace and HTML entities
-        final_text = unescape(re.sub(r"\s+", " ", final_text))
+       # final_text = unescape(re.sub(r"\s+", " ", final_text))
+        ordered_text = " ".join(verses[vn] for vn in sorted(verses.keys(), key=lambda x: int(x) if x.isdigit() else 0) if vn.isdigit())
                 
-        return final_text.strip()
+        return ordered_text.strip()
 
     
     def _clean_verse_text(self, text: str) -> str:
