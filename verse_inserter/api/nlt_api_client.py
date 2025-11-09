@@ -160,7 +160,7 @@ class NLTAPIClient:
             logger.warning("No verse_export tags found in HTML")
             return ""
     
-        verses = []
+        verses: dict[str, str] = {}
 
         for vtag in verse_export_tags:
             vn = vtag.get("vn")                     # e.g. "1"
@@ -179,7 +179,7 @@ class NLTAPIClient:
                 if subhead:
                     verses["section_title"] = subhead.get_text(strip=True)
             raw = vtag.get_text(separator=" ", strip=True)
-            #raw = re.sub(rf'^\s*{vn}\s+', '', raw)
+            raw = re.sub(rf'^\s*{vn}\s+', '', raw)
 
             clean = unescape(re.sub(r"\s+", " ", raw)).strip()
             if clean:
@@ -226,9 +226,12 @@ class NLTAPIClient:
 
         # Clean up whitespace and HTML entities
        # final_text = unescape(re.sub(r"\s+", " ", final_text))
-        ordered_text = " ".join(verses[vn] for vn in sorted(verses.keys(), key=lambda x: int(x) if x.isdigit() else 0) if vn.isdigit())
+        ordered = []
+        for k in sorted(verses.keys(), key=lambda x: int(x) if x.isdigit() else -1):
+            if k.isdigit():
+                ordered.append(verses[k])
                 
-        return ordered_text.strip()
+        return " ".join(ordered).strip()
 
     
     def _clean_verse_text(self, text: str) -> str:
