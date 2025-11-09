@@ -154,7 +154,7 @@ class NLTAPIClient:
         
         
         # Look for verse_export tag which contains the actual verse text
-        verse_export = soup.find("verse_export")
+        verse_exports = soup.find("verse_export")
 
         if not verse_exports:
             logger.warning("No verse_export tags found in HTML")
