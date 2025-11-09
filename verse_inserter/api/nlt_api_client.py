@@ -163,11 +163,14 @@ class NLTAPIClient:
         verses = []
         
         for verse_export in verse_exports:
+
+            # We make a copy to avoid issues with modifying while iterating
+            verse_copy = verse_export
             
             # Remove footnote links and their content
-            for footnote in verse_export.find_all("a", class_="a-tn"):
+            for footnote in verse_copy.find_all("a", class_="a-tn"):
                 footnote.decompose()
-            for footnote_text in verse_export.find_all("span", class_="tn"):
+            for footnote_text in verse_copy.find_all("span", class_="tn"):
                 footnote_text.decompose()
 
              # Remove verse numbers
@@ -175,13 +178,13 @@ class NLTAPIClient:
                # vn.decompose()
             
             # Get all paragraph tags within verse_export
-            paragraphs = verse_export.find_all("p")
+            paragraphs = verse_copy.find_all("p")
         
             verse_parts = []
             for p in paragraphs:
                # Unwrap any remaining tags
-                for tag in p.find_all():
-                    tag.unwrap()
+               # for tag in p.find_all():
+                #    tag.unwrap()
                 
                 text = p.get_text(separator=" ", strip=True)
                # text = unescape(re.sub(r"\s+", " ", text))
