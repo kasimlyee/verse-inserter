@@ -179,7 +179,7 @@ class NLTAPIClient:
                 if subhead:
                     verses["section_title"] = subhead.get_text(strip=True)
             raw = vtag.get_text(separator=" ", strip=True)
-            raw = re.sub(rf'^\s*{vn}\s+', '', raw)
+            #raw = re.sub(rf'^\s*{vn}\s+', '', raw)
 
             clean = unescape(re.sub(r"\s+", " ", raw)).strip()
             if clean:
