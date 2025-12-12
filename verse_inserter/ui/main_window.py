@@ -312,8 +312,22 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
                 self._update_status("Fetching verses from API...")
                 verses = self._fetch_verses_async(placeholders, translation)
 
+                # Show preview dialog for user approval
+                self._update_status("Waiting for user approval...")
+                selected_refs = self._show_preview_dialog(placeholders, verses)
+
+                if selected_refs is None:
+                    # User cancelled
+                    self._log_message("⚠ Processing cancelled by user")
+                    self.after(0, lambda: messagebox.showinfo("Cancelled", "Document processing was cancelled."))
+                    return
+
+                # Filter verses to only include selected ones
+                filtered_verses = {ref: verse for ref, verse in verses.items() if ref in selected_refs}
+                self._log_message(f"📋 User approved {len(filtered_verses)} replacements")
+
                 self._update_status("Replacing placeholders...")
-                result = self.document_processor.replace_placeholders(doc, verses)
+                result = self.document_processor.replace_placeholders(doc, filtered_verses)
 
                 self._update_stats("replaced", result.placeholders_replaced)
                 self._update_stats("failed", result.placeholders_failed)
@@ -466,6 +480,46 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
         self.status_var.set("Processing...")
         for key in self.stats_labels:
             self.stats_labels[key].set("0")
+
+    def _show_preview_dialog(self, placeholders, verses):
+        """
+        Show preview dialog for user to approve replacements.
+
+        Args:
+            placeholders: List of placeholders found
+            verses: Dictionary of verses fetched
+
+        Returns:
+            Set of selected reference strings, or None if cancelled
+        """
+        from .widgets.preview_dialog import PreviewDialog
+
+        # Since we're in a background thread, schedule dialog on main thread
+        dialog_result = [None]  # Use list to allow modification in nested function
+
+        def show_dialog():
+            dialog = PreviewDialog(self, placeholders, verses)
+            dialog.wait_window()  # Modal - blocks until closed
+
+            if dialog.result == "proceed":
+                dialog_result[0] = dialog.get_selected_references()
+            else:
+                dialog_result[0] = "CANCELLED"
+
+        # Run dialog synchronously on main thread
+        self.after(0, show_dialog)
+
+        # Wait for dialog to complete
+        while dialog_result[0] is None and self.is_processing:
+            import time
+            time.sleep(0.05)
+            try:
+                self.update()
+            except Exception:
+                break
+
+        # Return None if cancelled, otherwise return selected refs
+        return None if dialog_result[0] == "CANCELLED" else dialog_result[0]
 
     def _show_settings(self) -> None:
         from .widgets.settings_dialog import SettingsDialog

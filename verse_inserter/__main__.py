@@ -6,7 +6,7 @@ configuration, and launches the UI with comprehensive error handling.
 
 Author: Kasim Lyee <lyee@codewithlyee.com>
 Organization: Softlite Inc.
-License: Proprietary - All Rights Reserved
+License: MIT
 
 Usage:
     python -m verse_inserter

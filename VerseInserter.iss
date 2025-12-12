@@ -4,7 +4,7 @@
 ; Company: Softlite Inc.
 
 [Setup]
-AppId={{A1B2C3D4-E5F6-7890-1234-567890ABCDEF}
+AppId={{A1B2C3D4-E5F6-7890-1234-567890ABCDEF}}
 AppName=VerseInserter
 AppVersion=1.0.0
 AppVerName=VerseInserter 1.0.0
@@ -12,7 +12,7 @@ AppPublisher=Softlite Inc.
 AppPublisherURL=https://codewithlyee.com
 AppSupportURL=https://codewithlyee.com/support
 AppUpdatesURL=https://codewithlyee.com/updates
-AppCopyright=Copyright (c) 2025 Softlite Inc. All Rights Reserved.
+AppCopyright=Copyright (c) 2025 Kasim Lyee. Released under MIT License.
 DefaultDirName={autopf}\Softlite Inc\VerseInserter
 DefaultGroupName=VerseInserter
 AllowNoIcons=yes

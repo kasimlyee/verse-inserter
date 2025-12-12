@@ -584,10 +584,11 @@ class DocumentProcessor:
         format_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
-        Replace a single placeholder in the document.
-        
-        Handles format preservation and applies optional formatting.
-        
+        Replace a single placeholder in the document with run-level formatting preservation.
+
+        This implementation preserves character-level formatting (bold, italic, font, etc.)
+        by performing replacements at the run level rather than replacing entire paragraphs.
+
         Args:
             document: Document object
             placeholder: Placeholder to replace
@@ -597,18 +598,87 @@ class DocumentProcessor:
         # Get the paragraph containing the placeholder
         if placeholder.paragraph_index < len(document.paragraphs):
             paragraph = document.paragraphs[placeholder.paragraph_index]
-            
-            # Simple text replacement (enhance for run-level preservation)
-            if placeholder.raw_text in paragraph.text:
-                # Replace text while preserving paragraph structure
-                paragraph.text = paragraph.text.replace(
+
+            # Perform run-level replacement to preserve formatting
+            if self.preserve_formatting:
+                self._replace_in_runs_preserve_formatting(
+                    paragraph,
                     placeholder.raw_text,
                     replacement_text
                 )
-                
-                # Apply formatting if specified
-                if format_options and not self.preserve_formatting:
-                    self._apply_formatting(paragraph, format_options)
+            else:
+                # Legacy behavior: replace entire paragraph text
+                if placeholder.raw_text in paragraph.text:
+                    paragraph.text = paragraph.text.replace(
+                        placeholder.raw_text,
+                        replacement_text
+                    )
+
+                    # Apply formatting if specified
+                    if format_options:
+                        self._apply_formatting(paragraph, format_options)
+
+    def _replace_in_runs_preserve_formatting(
+        self,
+        paragraph: Paragraph,
+        search_text: str,
+        replacement_text: str,
+    ) -> bool:
+        """
+        Replace text at run level while preserving formatting.
+
+        This method searches for the placeholder across runs and replaces it
+        while maintaining all character formatting (bold, italic, font, color, etc.).
+
+        Args:
+            paragraph: Paragraph containing the text
+            search_text: Text to search for (e.g., "{{John 3:16}}")
+            replacement_text: Text to replace with
+
+        Returns:
+            True if replacement was made, False otherwise
+        """
+        # Build full paragraph text from runs
+        full_text = "".join(run.text for run in paragraph.runs)
+
+        # Check if search text exists
+        if search_text not in full_text:
+            return False
+
+        # Find the position of the placeholder
+        start_pos = full_text.find(search_text)
+        end_pos = start_pos + len(search_text)
+
+        # Track position through runs
+        current_pos = 0
+        replacement_made = False
+
+        for run in paragraph.runs:
+            run_text = run.text
+            run_start = current_pos
+            run_end = current_pos + len(run_text)
+
+            # Check if this run contains part of the placeholder
+            if run_end > start_pos and run_start < end_pos:
+                # Calculate overlap
+                overlap_start = max(0, start_pos - run_start)
+                overlap_end = min(len(run_text), end_pos - run_start)
+
+                # Build new run text
+                before = run_text[:overlap_start]
+                after = run_text[overlap_end:]
+
+                # For the first overlapping run, insert replacement text
+                if not replacement_made:
+                    run.text = before + replacement_text + after
+                    replacement_made = True
+                else:
+                    # For subsequent runs, just remove the placeholder part
+                    run.text = before + after
+
+            current_pos = run_end
+
+        return replacement_made
     
     def _apply_formatting(
         self,
