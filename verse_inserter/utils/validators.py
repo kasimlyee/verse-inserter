@@ -14,24 +14,30 @@ from typing import Optional
 
 
 def validate_file_path(
-    path: Path,
+    path,  # Accept any path-like object
     must_exist: bool = False,
     extension: Optional[str] = None,
 ) -> None:
     """
     Validate file path with optional existence and extension checks.
-    
+
     Args:
-        path: Path to validate
+        path: Path to validate (Path object or string)
         must_exist: Whether file must exist
         extension: Required file extension (e.g., ".docx")
-        
+
     Raises:
         FileNotFoundError: If must_exist=True and file doesn't exist
         ValueError: If extension doesn't match or path is invalid
     """
-    if not isinstance(path, Path):
-        path = Path(path)
+    # Convert to Path object
+    try:
+        if hasattr(path, 'suffix'):  # Already a Path-like object
+            pass
+        else:
+            path = Path(str(path))
+    except Exception as e:
+        raise ValueError(f"Invalid path: {path}") from e
     
     # Check extension
     if extension and path.suffix.lower() != extension.lower():

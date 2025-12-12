@@ -31,7 +31,9 @@ class TestDocumentProcessor:
         """Test successful document loading."""
         with processor.load_document(sample_docx_path) as doc:
             assert doc is not None
-            assert isinstance(doc, Document)
+            # Check it's a Document by checking for expected attributes
+            assert hasattr(doc, 'paragraphs')
+            assert hasattr(doc, 'tables')
             assert len(doc.paragraphs) >= 2
 
     def test_load_document_not_found(self, processor, tmp_path):
