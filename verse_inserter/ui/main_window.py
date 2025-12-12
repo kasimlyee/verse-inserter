@@ -22,6 +22,7 @@ from ..core.document_processor import DocumentProcessor
 from ..core.placeholder_parser import PlaceholderParser
 from ..models.verse import TranslationType
 from ..utils.logger import get_logger
+from .widgets.batch_dialog import BatchProcessingDialog
 
 logger = get_logger(__name__)
 
@@ -214,6 +215,9 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
 
         self.process_button = ttk.Button(left_buttons, text="▶ Start Processing", command=self._process_document, width=20)
         self.process_button.pack(side=tk.LEFT, padx=(0, 10))
+
+        self.batch_button = ttk.Button(left_buttons, text="📚 Batch Process", command=self._open_batch_dialog, width=15)
+        self.batch_button.pack(side=tk.LEFT, padx=(0, 10))
 
         self.stop_button = ttk.Button(left_buttons, text="⏹ Stop", command=self._stop_processing, width=12, state=tk.DISABLED)
         self.stop_button.pack(side=tk.LEFT, padx=(0, 10))
@@ -552,6 +556,38 @@ Email: lyee@codewithlyee.com
 Phone: +256701521269
 """
         messagebox.showinfo("Help", help_text)
+
+    def _open_batch_dialog(self) -> None:
+        """Open batch processing dialog."""
+        if not self.settings.api_key:
+            messagebox.showwarning(
+                "API Key Required",
+                "Please configure your API key in Settings before using batch processing.",
+            )
+            return
+
+        try:
+            # Create API client
+            api_client = BibleAPIClient(api_key=self.settings.api_key)
+
+            # Open batch dialog
+            dialog = BatchProcessingDialog(
+                parent=self,
+                api_client=api_client,
+                cache_manager=self.cache_manager,
+            )
+
+            # Wait for dialog to close
+            self.wait_window(dialog)
+
+            self._log_message("✓ Batch processing dialog closed")
+
+        except Exception as e:
+            logger.error(f"Error opening batch dialog: {e}")
+            messagebox.showerror(
+                "Error",
+                f"Failed to open batch processing dialog:\n\n{str(e)}",
+            )
 
     def _show_about(self) -> None:
         about_text = f"""VerseInserter v{self.APP_VERSION}\n\nAutomated Scripture Insertion\n\nDeveloper: Kasim Lyee\nEmail: lyee@codewithlyee.com\nPhone: +256701521269\nWebsite: www.portfolio.codewithlyee.com\n\nOrganization: Softlite Inc.\n© 2025 All Rights Reserved\n\n"Inserting Scripture Seamlessly into Your Words."""
