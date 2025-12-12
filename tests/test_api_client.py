@@ -54,95 +54,83 @@ class TestBibleAPIClient:
     @pytest.mark.asyncio
     async def test_fetch_verse_success(self, sample_verse_reference):
         """Test successful verse fetching."""
-        with patch('aiohttp.ClientSession') as mock_session_class:
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            mock_response.json = AsyncMock(return_value={
-                "data": {
-                    "content": "For God so loved the world..."
-                }
-            })
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(return_value={
+            "data": {
+                "content": "For God so loved the world..."
+            }
+        })
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=None)
 
-            mock_session = AsyncMock()
-            mock_session.get = AsyncMock(return_value=mock_response)
-            mock_session.__aenter__ = AsyncMock(return_value=mock_response)
-            mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(return_value=mock_response)
 
-            mock_session_class.return_value = mock_session
+        client = BibleAPIClient(api_key="test_key")
+        client.session = mock_session
 
-            client = BibleAPIClient(api_key="test_key")
-            client.session = mock_session
+        verse = await client.fetch_verse(sample_verse_reference)
 
-            verse = await client.fetch_verse(sample_verse_reference)
-
-            assert isinstance(verse, Verse)
-            assert "For God so loved" in verse.text
+        assert isinstance(verse, Verse)
+        assert "For God so loved" in verse.text
 
     @pytest.mark.asyncio
     async def test_fetch_verse_authentication_error(self, sample_verse_reference):
         """Test handling of authentication errors."""
-        with patch('aiohttp.ClientSession') as mock_session_class:
-            mock_response = AsyncMock()
-            mock_response.status = 401
-            mock_response.json = AsyncMock(return_value={
-                "message": "Invalid API key"
-            })
+        mock_response = AsyncMock()
+        mock_response.status = 401
+        mock_response.json = AsyncMock(return_value={
+            "message": "Invalid API key"
+        })
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=None)
 
-            mock_session = AsyncMock()
-            mock_session.get = AsyncMock(return_value=mock_response)
-            mock_session.__aenter__ = AsyncMock(return_value=mock_response)
-            mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(return_value=mock_response)
 
-            mock_session_class.return_value = mock_session
+        client = BibleAPIClient(api_key="invalid_key")
+        client.session = mock_session
 
-            client = BibleAPIClient(api_key="invalid_key")
-            client.session = mock_session
-
-            with pytest.raises(APIAuthenticationError):
-                await client.fetch_verse(sample_verse_reference)
+        with pytest.raises(APIAuthenticationError):
+            await client.fetch_verse(sample_verse_reference)
 
     @pytest.mark.asyncio
     async def test_fetch_verse_rate_limit(self, sample_verse_reference):
         """Test handling of rate limit errors."""
-        with patch('aiohttp.ClientSession') as mock_session_class:
-            mock_response = AsyncMock()
-            mock_response.status = 429
+        mock_response = AsyncMock()
+        mock_response.status = 429
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=None)
 
-            mock_session = AsyncMock()
-            mock_session.get = AsyncMock(return_value=mock_response)
-            mock_session.__aenter__ = AsyncMock(return_value=mock_response)
-            mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(return_value=mock_response)
 
-            mock_session_class.return_value = mock_session
+        client = BibleAPIClient(api_key="test_key")
+        client.session = mock_session
 
-            client = BibleAPIClient(api_key="test_key")
-            client.session = mock_session
-
-            with pytest.raises(APIRateLimitError):
-                await client.fetch_verse(sample_verse_reference)
+        with pytest.raises(APIRateLimitError):
+            await client.fetch_verse(sample_verse_reference)
 
     @pytest.mark.asyncio
     async def test_fetch_verse_not_found(self, sample_verse_reference):
         """Test handling of verse not found errors."""
-        with patch('aiohttp.ClientSession') as mock_session_class:
-            mock_response = AsyncMock()
-            mock_response.status = 404
-            mock_response.json = AsyncMock(return_value={
-                "message": "Verse not found"
-            })
+        mock_response = AsyncMock()
+        mock_response.status = 404
+        mock_response.json = AsyncMock(return_value={
+            "message": "Verse not found"
+        })
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=None)
 
-            mock_session = AsyncMock()
-            mock_session.get = AsyncMock(return_value=mock_response)
-            mock_session.__aenter__ = AsyncMock(return_value=mock_response)
-            mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(return_value=mock_response)
 
-            mock_session_class.return_value = mock_session
+        client = BibleAPIClient(api_key="test_key")
+        client.session = mock_session
 
-            client = BibleAPIClient(api_key="test_key")
-            client.session = mock_session
-
-            with pytest.raises(APIError, match="Verse not found"):
-                await client.fetch_verse(sample_verse_reference)
+        with pytest.raises(APIError, match="Verse not found"):
+            await client.fetch_verse(sample_verse_reference)
 
     def test_format_verse_id_simple(self):
         """Test verse ID formatting for simple references."""

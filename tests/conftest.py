@@ -113,10 +113,19 @@ def clean_cache(tmp_path: Path) -> Generator[Path, None, None]:
     cache_dir = tmp_path / "test_cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     yield cache_dir
-    # Cleanup after test
+    # Cleanup after test - with retry for Windows file locks
     import shutil
+    import time
     if cache_dir.exists():
-        shutil.rmtree(cache_dir)
+        # Give time for cache to close
+        time.sleep(0.1)
+        # Try cleanup with retry
+        for _ in range(3):
+            try:
+                shutil.rmtree(cache_dir, ignore_errors=True)
+                break
+            except Exception:
+                time.sleep(0.2)
 
 
 # Test data constants

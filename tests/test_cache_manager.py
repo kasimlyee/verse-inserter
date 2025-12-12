@@ -17,7 +17,13 @@ class TestCacheManager:
     @pytest.fixture
     def cache_manager(self, clean_cache):
         """Create a cache manager with clean cache directory."""
-        return CacheManager(cache_dir=clean_cache, ttl_days=30)
+        manager = CacheManager(cache_dir=clean_cache, ttl_days=30)
+        yield manager
+        # Explicitly close cache to release file locks
+        try:
+            manager.cache.close()
+        except Exception:
+            pass
 
     def test_initialization(self, clean_cache):
         """Test cache manager initialization."""
