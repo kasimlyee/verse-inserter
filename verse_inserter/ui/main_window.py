@@ -23,6 +23,7 @@ from ..core.placeholder_parser import PlaceholderParser
 from ..models.verse import TranslationType
 from ..utils.logger import get_logger
 from .widgets.batch_dialog import BatchProcessingDialog
+from .widgets.translation_manager_dialog import TranslationManagerDialog
 
 logger = get_logger(__name__)
 
@@ -230,6 +231,9 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
 
         about_button = ttk.Button(right_buttons, text="ℹ About", command=self._show_about, width=12)
         about_button.pack(side=tk.RIGHT, padx=(10, 0))
+
+        translations_button = ttk.Button(right_buttons, text="📖 Translations", command=self._open_translation_manager, width=15)
+        translations_button.pack(side=tk.RIGHT, padx=(0, 10))
 
         settings_button = ttk.Button(right_buttons, text="⚙ Settings", command=self._show_settings, width=12)
         settings_button.pack(side=tk.RIGHT)
@@ -587,6 +591,37 @@ Phone: +256701521269
             messagebox.showerror(
                 "Error",
                 f"Failed to open batch processing dialog:\n\n{str(e)}",
+            )
+
+    def _open_translation_manager(self) -> None:
+        """Open translation manager dialog."""
+        if not self.settings.api_key:
+            messagebox.showwarning(
+                "API Key Required",
+                "Please configure your API key in Settings before managing translations.",
+            )
+            return
+
+        try:
+            # Create API client
+            api_client = BibleAPIClient(api_key=self.settings.api_key)
+
+            # Open translation manager
+            dialog = TranslationManagerDialog(
+                parent=self,
+                api_client=api_client,
+            )
+
+            # Wait for dialog to close
+            self.wait_window(dialog)
+
+            self._log_message("✓ Translation manager closed")
+
+        except Exception as e:
+            logger.error(f"Error opening translation manager: {e}")
+            messagebox.showerror(
+                "Error",
+                f"Failed to open translation manager:\n\n{str(e)}",
             )
 
     def _show_about(self) -> None:
