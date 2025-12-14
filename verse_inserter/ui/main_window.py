@@ -11,6 +11,12 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 
 try:
+    from tkinterdnd2 import DND_FILES, TkinterDnD  # type: ignore
+except ImportError:
+    TkinterDnD = None
+    DND_FILES = None
+
+try:
     import ttkbootstrap as ttk  # type: ignore
 except ImportError:
     import tkinter.ttk as ttk  # type: ignore
@@ -70,6 +76,7 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
         self._setup_window()
         self._create_widgets()
         self._setup_bindings()
+        self._setup_drag_and_drop()
 
         # Check API key shortly after startup
         self.after(500, self._check_api_key_on_startup)
@@ -159,25 +166,75 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
         progress_frame = ttk.LabelFrame(parent, text="⏳ Processing Progress", padding=15)
         progress_frame.pack(fill=tk.X, pady=(0, 15))
 
+        # Progress bar with visual enhancements
         self.progress_var = tk.DoubleVar(value=0)
-        self.progress_bar = ttk.Progressbar(progress_frame, variable=self.progress_var, maximum=100, length=400)
+        self.progress_bar = ttk.Progressbar(
+            progress_frame,
+            variable=self.progress_var,
+            maximum=100,
+            length=400,
+            mode='determinate'
+        )
         self.progress_bar.pack(fill=tk.X, pady=(0, 10))
 
-        self.status_var = tk.StringVar(value="Ready to process")
-        ttk.Label(progress_frame, textvariable=self.status_var, font=("Segoe UI", 9)).pack(anchor=tk.W)
+        # Primary status (main operation)
+        status_row = ttk.Frame(progress_frame)
+        status_row.pack(fill=tk.X, pady=(0, 5))
 
+        self.status_var = tk.StringVar(value="Ready to process")
+        self.status_label = ttk.Label(
+            status_row,
+            textvariable=self.status_var,
+            font=("Segoe UI", 9, "bold"),
+            foreground="#007bff"
+        )
+        self.status_label.pack(side=tk.LEFT)
+
+        # ETA display
+        self.eta_var = tk.StringVar(value="")
+        ttk.Label(
+            status_row,
+            textvariable=self.eta_var,
+            font=("Segoe UI", 8),
+            foreground="#6c757d"
+        ).pack(side=tk.RIGHT)
+
+        # Detailed operation status
+        self.detail_var = tk.StringVar(value="")
+        ttk.Label(
+            progress_frame,
+            textvariable=self.detail_var,
+            font=("Segoe UI", 8),
+            foreground="#6c757d"
+        ).pack(anchor=tk.W, pady=(0, 10))
+
+        # Statistics
         stats_frame = ttk.Frame(progress_frame)
         stats_frame.pack(fill=tk.X, pady=(10, 0))
 
         self.stats_labels = {}
-        stats_items = [("Placeholders Found:", "found"), ("Successfully Replaced:", "replaced"), ("Failed:", "failed")]
-        for idx, (label_text, key) in enumerate(stats_items):
+        stats_items = [
+            ("Placeholders Found:", "found", "#17a2b8"),
+            ("Successfully Replaced:", "replaced", "#28a745"),
+            ("Failed:", "failed", "#dc3545"),
+            ("Processing Speed:", "speed", "#6610f2")
+        ]
+        for idx, (label_text, key, color) in enumerate(stats_items):
             frame = ttk.Frame(stats_frame)
             frame.pack(side=tk.LEFT, padx=(0, 20) if idx < len(stats_items) - 1 else 0)
             ttk.Label(frame, text=label_text, font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(0, 5))
-            var = tk.StringVar(value="0")
+            var = tk.StringVar(value="—" if key == "speed" else "0")
             self.stats_labels[key] = var
-            ttk.Label(frame, textvariable=var, font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT)
+            ttk.Label(
+                frame,
+                textvariable=var,
+                font=("Segoe UI", 9, "bold"),
+                foreground=color
+            ).pack(side=tk.LEFT)
+
+        # Track timing for ETA and speed calculations
+        self.processing_start_time = None
+        self.verses_processed = 0
 
     def _create_log_section(self, parent: ttk.Frame) -> None:
         log_frame = ttk.LabelFrame(parent, text="📋 Activity Log", padding=15)
@@ -303,30 +360,51 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
             translation = self._parse_translation(trans_text)
             self._log_message(f"📖 Using translation: {translation.display_name}")
 
-            self._update_status("Loading document...")
+            # Stage 1: Load document
+            self._update_status(
+                "Loading document...",
+                detail=f"Opening {self.selected_file.name}",
+                color="#17a2b8"
+            )
             with self.document_processor.load_document(self.selected_file) as doc:
-                self._update_status("Scanning for placeholders...")
+                # Stage 2: Scan for placeholders
+                self._update_status(
+                    "Scanning for placeholders...",
+                    detail="Analyzing document content",
+                    color="#17a2b8"
+                )
                 self.document_processor.set_progress_callback(self._progress_callback)
 
                 placeholders = self.document_processor.find_all_placeholders(doc, translation=translation)
 
                 if not placeholders:
+                    self._update_status("No placeholders found", color="#ffc107")
                     self.after(0, lambda: messagebox.showinfo("No Placeholders", "No scripture placeholders found in document."))
                     return
 
                 self._update_stats("found", len(placeholders))
                 self._log_message(f"✓ Found {len(placeholders)} placeholders")
 
-                self._update_status("Fetching verses from API...")
+                # Stage 3: Fetch verses
+                self._update_status(
+                    "Fetching verses from API...",
+                    detail=f"Retrieving {len(placeholders)} unique verses",
+                    color="#007bff"
+                )
                 verses = self._fetch_verses_async(placeholders, translation)
 
-                # Show preview dialog for user approval
-                self._update_status("Waiting for user approval...")
+                # Stage 4: User approval
+                self._update_status(
+                    "Waiting for user approval...",
+                    detail="Review verses in preview dialog",
+                    color="#6610f2"
+                )
                 selected_refs = self._show_preview_dialog(placeholders, verses)
 
                 if selected_refs is None:
                     # User cancelled
                     self._log_message("⚠ Processing cancelled by user")
+                    self._update_status("Cancelled by user", color="#ffc107")
                     self.after(0, lambda: messagebox.showinfo("Cancelled", "Document processing was cancelled."))
                     return
 
@@ -334,13 +412,23 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
                 filtered_verses = {ref: verse for ref, verse in verses.items() if ref in selected_refs}
                 self._log_message(f"📋 User approved {len(filtered_verses)} replacements")
 
-                self._update_status("Replacing placeholders...")
+                # Stage 5: Replace placeholders
+                self._update_status(
+                    "Replacing placeholders...",
+                    detail=f"Inserting {len(filtered_verses)} verses into document",
+                    color="#007bff"
+                )
                 result = self.document_processor.replace_placeholders(doc, filtered_verses)
 
                 self._update_stats("replaced", result.placeholders_replaced)
                 self._update_stats("failed", result.placeholders_failed)
 
-                self._update_status("Saving document...")
+                # Stage 6: Save document
+                self._update_status(
+                    "Saving document...",
+                    detail="Writing changes to file",
+                    color="#007bff"
+                )
                 output_path = self.document_processor.generate_output_filename(self.selected_file)
                 try:
                     self.document_processor.save_document(doc, output_path, overwrite=True)
@@ -351,6 +439,13 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
                     output_path = unique_output_path
 
                 self._log_message(f"✅ Document saved: {output_path}")
+
+                # Final status: Success
+                self._update_status(
+                    "✅ Processing complete!",
+                    detail=f"Saved to {output_path.name}",
+                    color="#28a745"
+                )
 
                 self.after(
                     0,
@@ -363,6 +458,11 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
         except Exception as exc:
             logger.exception("Processing error")
             self._log_message(f"✗ ERROR: {exc}")
+            self._update_status(
+                "❌ Processing failed",
+                detail=str(exc)[:50],
+                color="#dc3545"
+            )
             err = f"An error occurred:\n\n{str(exc)}"
             self.after(0, lambda msg=err: messagebox.showerror("Processing Failed", msg))
 
@@ -370,7 +470,6 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
             self.is_processing = False
             self.after(0, lambda: self.process_button.config(state=tk.NORMAL))
             self.after(0, lambda: self.stop_button.config(state=tk.DISABLED))
-            self._update_status("Ready")
 
     def _parse_translation(self, trans_text: str) -> TranslationType:
         try:
@@ -391,23 +490,32 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
         return TranslationType.KJV
 
     def _fetch_verses_async(self, placeholders: Iterable[Any], translation: TranslationType) -> Dict[str, Any]:
-        """Fetch verses from API with fallback support."""
+        """Fetch verses from API with fallback support and enhanced progress tracking."""
         verses_dict: Dict[str, Any] = {}
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         unique_refs = self.placeholder_parser.extract_unique_references(placeholders)
-    
+
         try:
             async def fetch_all() -> None:
                 async with BibleAPIClient(self.settings.api_key, self.settings.nlt_api_key) as client:
                     total = len(unique_refs) or 1
-                    
+
                     self._log_message(f"📡 Fetching {len(unique_refs)} verses (with fallback)...")
-                    
+                    self._start_processing_timer()
+
                     for idx, ref in enumerate(unique_refs):
                         if not self.is_processing:
                             break
-                        
+
+                        # Update detailed status
+                        detail = f"Processing {idx + 1} of {total}: {ref.canonical_reference}"
+                        self._update_status(
+                            f"Fetching verses... {idx + 1}/{total}",
+                            detail=detail,
+                            color="#007bff"
+                        )
+
                         # Check cache first
                         cached = self.cache_manager.get(ref)
                         if cached:
@@ -416,41 +524,42 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
                         else:
                             try:
                                 self._log_message(f"⬇️ Fetching: {ref.canonical_reference}")
-                                
+
                                 # Use the new method with automatic fallback
                                 verse = await client.fetch_verse_with_fallback(ref)
-                                
+
                                 if verse and getattr(verse, "text", None):
                                     verses_dict[ref.canonical_reference] = verse
                                     self.cache_manager.set(ref, verse)
-                                    
+
                                     # Indicate if we used fallback
                                     source = "free API" if "fallback" in getattr(verse, "source_api", "") else "API.Bible"
                                     self._log_message(f"✅ Fetched via {source}: {ref.canonical_reference}")
                                 else:
                                     self._log_message(f"❌ Both APIs failed for: {ref.canonical_reference}")
-                                    
+
                             except Exception as e:
                                 error_msg = f"❌ Complete failure for {ref.canonical_reference}: {str(e)}"
                                 self._log_message(error_msg)
                                 logger.error(error_msg)
-    
-                        # Update progress
+
+                        # Update progress with ETA
                         progress = (idx + 1) / total * 50 + 50
                         self.after(0, lambda p=progress: self.progress_var.set(p))
-                        self.after(0, lambda i=idx, t=total: self.status_var.set(f"Fetching verses... {i + 1}/{t}"))
-    
+                        self._update_eta(idx + 1, total)
+
             loop.run_until_complete(fetch_all())
-            
+
         except Exception as e:
             logger.exception("API fetch error")
             self._log_message(f"❌ API fetch error: {e}")
+            self._update_status("Error fetching verses", color="#dc3545")
         finally:
             try:
                 loop.close()
             except Exception:
                 pass
-    
+
         success_count = len([v for v in verses_dict.values() if v and getattr(v, 'text', None)])
         self._log_message(f"📊 Successfully retrieved {success_count}/{len(unique_refs)} verses")
         return verses_dict
@@ -460,13 +569,78 @@ class MainWindow(ttk.Window if hasattr(ttk, "Window") else tk.Tk):
         self.after(0, lambda p=progress: self.progress_var.set(p))
         self.after(0, lambda: self.status_var.set(message))
 
-    def _update_status(self, message: str) -> None:
+    def _update_status(self, message: str, detail: str = "", color: str = "#007bff") -> None:
+        """
+        Update status message with optional detail and color.
+
+        Args:
+            message: Main status message
+            detail: Optional detailed status message
+            color: Hex color code for status label
+        """
         self.after(0, lambda: self.status_var.set(message))
+        self.after(0, lambda: self.status_label.config(foreground=color))
+        if detail:
+            self.after(0, lambda: self.detail_var.set(detail))
         self.after(0, lambda: self._log_message(message))
 
-    def _update_stats(self, key: str, value: int) -> None:
+    def _update_stats(self, key: str, value: int | str) -> None:
+        """Update statistics display."""
         if key in self.stats_labels:
             self.after(0, lambda: self.stats_labels[key].set(str(value)))
+
+    def _update_eta(self, current: int, total: int) -> None:
+        """
+        Calculate and update ETA based on processing speed.
+
+        Args:
+            current: Number of items processed
+            total: Total number of items
+        """
+        if not self.processing_start_time or total == 0:
+            return
+
+        elapsed = time.time() - self.processing_start_time
+        if current == 0:
+            return
+
+        # Calculate speed
+        speed = current / elapsed
+        remaining = total - current
+
+        if speed > 0:
+            eta_seconds = remaining / speed
+            if eta_seconds < 60:
+                eta_text = f"ETA: {int(eta_seconds)}s"
+            else:
+                eta_minutes = int(eta_seconds / 60)
+                eta_text = f"ETA: {eta_minutes}m {int(eta_seconds % 60)}s"
+
+            self.after(0, lambda: self.eta_var.set(eta_text))
+
+            # Update speed display
+            speed_text = f"{speed:.1f}/s"
+            self._update_stats("speed", speed_text)
+
+    def _start_processing_timer(self) -> None:
+        """Start processing timer for ETA calculations."""
+        self.processing_start_time = time.time()
+        self.verses_processed = 0
+
+    def _reset_progress(self) -> None:
+        """Reset progress indicators to initial state."""
+        self.progress_var.set(0)
+        self.status_var.set("Processing...")
+        self.detail_var.set("")
+        self.eta_var.set("")
+        self.status_label.config(foreground="#007bff")
+        for key in self.stats_labels:
+            if key == "speed":
+                self.stats_labels[key].set("—")
+            else:
+                self.stats_labels[key].set("0")
+        self.processing_start_time = None
+        self.verses_processed = 0
 
     def _log_message(self, message: str) -> None:
         def add_to_log() -> None:
@@ -640,6 +814,107 @@ Phone: +256701521269
             else:
                 self._log_message("⚠ Warning: No API key. Set it in Settings.")
                 self.status_bar_var.set("⚠ API key required")
+
+    def _setup_drag_and_drop(self) -> None:
+        """Setup drag-and-drop support for file selection."""
+        if TkinterDnD is None or DND_FILES is None:
+            logger.warning("tkinterdnd2 not available, drag-and-drop disabled")
+            return
+
+        try:
+            # Register the window as a drop target
+            self.drop_target_register(DND_FILES)
+            self.dnd_bind('<<Drop>>', self._on_drop)
+            self.dnd_bind('<<DragEnter>>', self._on_drag_enter)
+            self.dnd_bind('<<DragLeave>>', self._on_drag_leave)
+            logger.info("Drag-and-drop enabled")
+        except Exception as e:
+            logger.warning(f"Failed to setup drag-and-drop: {e}")
+
+    def _on_drag_enter(self, event) -> None:
+        """Handle drag enter event."""
+        # Visual feedback that file can be dropped
+        self.file_path_label.config(foreground="blue")
+
+    def _on_drag_leave(self, event) -> None:
+        """Handle drag leave event."""
+        # Reset appearance
+        self.file_path_label.config(foreground="")
+
+    def _on_drop(self, event) -> str:
+        """
+        Handle file drop event.
+
+        Args:
+            event: Drop event containing file path
+
+        Returns:
+            Action string for the drag-and-drop system
+        """
+        # Reset appearance
+        self.file_path_label.config(foreground="")
+
+        # Get dropped files - tkinterdnd2 provides paths in event.data
+        # Paths may be space-separated and wrapped in {} on Windows
+        files_str = event.data
+
+        # Parse file paths (handle Windows {}-wrapped paths)
+        if files_str.startswith('{'):
+            # Multiple files or path with spaces on Windows
+            files = []
+            current = ""
+            in_braces = False
+
+            for char in files_str:
+                if char == '{':
+                    in_braces = True
+                elif char == '}':
+                    in_braces = False
+                    if current:
+                        files.append(current.strip())
+                        current = ""
+                elif char == ' ' and not in_braces:
+                    if current:
+                        files.append(current.strip())
+                        current = ""
+                else:
+                    current += char
+
+            if current:
+                files.append(current.strip())
+        else:
+            # Simple case - single file path
+            files = [files_str]
+
+        if not files or not files[0]:
+            return 'refuse_drop'
+
+        # Use first file
+        file_path = Path(files[0])
+
+        # Validate file extension
+        if file_path.suffix.lower() != '.docx':
+            messagebox.showwarning(
+                "Invalid File Type",
+                "Please drop a Word document (.docx file).",
+            )
+            return 'refuse_drop'
+
+        # Validate file exists
+        if not file_path.exists():
+            messagebox.showerror(
+                "File Not Found",
+                f"The dropped file does not exist:\n{file_path}",
+            )
+            return 'refuse_drop'
+
+        # Set the file
+        self.selected_file = file_path
+        self.file_path_var.set(str(file_path))
+        self._log_message(f"📁 File selected via drag-and-drop: {file_path.name}")
+        self.status_bar_var.set(f"File loaded: {file_path.name}")
+
+        return 'copy'
 
     def destroy(self) -> None:
         """Ensure executor is shut down on window close."""

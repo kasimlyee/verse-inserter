@@ -68,6 +68,9 @@ class PreviewDialog(tk.Toplevel):
         # Create UI
         self._create_widgets()
 
+        # Setup keyboard shortcuts
+        self._setup_keyboard_shortcuts()
+
         # Select all by default
         self._select_all()
 
@@ -79,6 +82,48 @@ class PreviewDialog(tk.Toplevel):
         x = (self.winfo_screenwidth() // 2) - (width // 2)
         y = (self.winfo_screenheight() // 2) - (height // 2)
         self.geometry(f"{width}x{height}+{x}+{y}")
+
+    def _setup_keyboard_shortcuts(self) -> None:
+        """Setup keyboard shortcuts for the dialog."""
+        # Enter - Proceed with selected
+        self.bind("<Return>", lambda e: self._on_proceed())
+
+        # Escape - Cancel
+        self.bind("<Escape>", lambda e: self._on_cancel())
+
+        # Ctrl+A - Select all
+        self.bind("<Control-a>", lambda e: self._select_all())
+
+        # Ctrl+D - Deselect all
+        self.bind("<Control-d>", lambda e: self._deselect_all())
+
+        # F1 - Show keyboard shortcuts help
+        self.bind("<F1>", lambda e: self._show_shortcuts_help())
+
+    def _show_shortcuts_help(self) -> None:
+        """Show keyboard shortcuts help dialog."""
+        help_text = """KEYBOARD SHORTCUTS
+
+Navigation:
+  ↑ ↓        Navigate items
+  Space      Toggle selected item
+
+Selection:
+  Ctrl+A     Select all verses
+  Ctrl+D     Deselect all verses
+
+Actions:
+  Enter      Proceed with selected verses
+  Escape     Cancel and close dialog
+
+Help:
+  F1         Show this help dialog
+"""
+        messagebox.showinfo(
+            "Keyboard Shortcuts",
+            help_text,
+            parent=self
+        )
 
     def _create_widgets(self) -> None:
         """Create dialog widgets."""
@@ -99,11 +144,22 @@ class PreviewDialog(tk.Toplevel):
         header_frame = ttk.Frame(self, padding=20)
         header_frame.pack(fill=tk.X)
 
+        # Title row with help button
+        title_frame = ttk.Frame(header_frame)
+        title_frame.pack(fill=tk.X)
+
         ttk.Label(
-            header_frame,
+            title_frame,
             text="📋 Preview Verse Replacements",
             font=("Segoe UI", 16, "bold")
-        ).pack(anchor=tk.W)
+        ).pack(side=tk.LEFT)
+
+        ttk.Button(
+            title_frame,
+            text="❓ Shortcuts (F1)",
+            command=self._show_shortcuts_help,
+            width=18
+        ).pack(side=tk.RIGHT)
 
         ttk.Label(
             header_frame,

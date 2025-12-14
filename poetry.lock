@@ -2455,6 +2455,18 @@ doc = ["reno", "sphinx"]
 test = ["pytest", "tornado (>=4.5)", "typeguard"]
 
 [[package]]
+name = "tkinterdnd2"
+version = "0.4.3"
+description = "TkinterDnD2 is a python wrapper for George Petasis'' tkDnD Tk extension version 2"
+optional = false
+python-versions = ">=3.6"
+groups = ["main"]
+files = [
+    {file = "tkinterdnd2-0.4.3-py3-none-any.whl", hash = "sha256:8804f5d2e2a99713ec93e85384397fec6bf66fdf2065e3750938d55018971c4a"},
+    {file = "tkinterdnd2-0.4.3.tar.gz", hash = "sha256:03a932a11b42ab139c4552b414aa10ee8a087b8386b52baca8c62939760c2ef2"},
+]
+
+[[package]]
 name = "tomlkit"
 version = "0.13.3"
 description = "Style preserving TOML library"
@@ -2695,4 +2707,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.15"
-content-hash = "b26e8019da60712c8285e8f4841aaba2899fbd41f5ee81a14686a8820f1bd3c1"
+content-hash = "1b678685631fd0a8a40d6c9126bdadf84d63b8243b4b9e8262efadab4d4be1da"
