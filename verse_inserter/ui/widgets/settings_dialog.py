@@ -369,23 +369,42 @@ class SettingsDialog(ttk.Toplevel):
             text="Theme:",
             font=("Segoe UI", 10, "bold")
         ).pack(anchor=W, pady=(0, 5))
-        
+
+        # Organized theme list with dark/light indicators
         themes = [
-            "cosmo", "darkly", "flatly", "journal",
-            "litera", "lumen", "minty", "pulse",
-            "sandstone", "united", "yeti"
+            "cosmo (Light)",
+            "flatly (Light)",
+            "litera (Light)",
+            "minty (Light)",
+            "pulse (Light)",
+            "sandstone (Light)",
+            "united (Light)",
+            "yeti (Light)",
+            "---",
+            "cyborg (Dark)",
+            "darkly (Dark)",
+            "solar (Dark)",
+            "superhero (Dark)",
+            "vapor (Dark)"
         ]
-        
+
         self.theme_var = tk.StringVar()
         theme_combo = ttk.Combobox(
             theme_frame,
             textvariable=self.theme_var,
             values=themes,
             state="readonly",
-            width=20
+            width=25
         )
         theme_combo.pack(anchor=W, pady=(0, 5))
-        
+
+        ttk.Label(
+            theme_frame,
+            text="✨ Tip: Choose a Dark theme for night mode",
+            font=("Segoe UI", 9),
+            bootstyle=INFO
+        ).pack(anchor=W, pady=(5, 0))
+
         ttk.Label(
             theme_frame,
             text="Note: Theme change requires restart",
@@ -608,7 +627,28 @@ class SettingsDialog(ttk.Toplevel):
         self.enable_cache_var.set(self.settings.enable_cache)
         self.cache_dir_var.set(str(self.settings.cache_directory))
         self.cache_ttl_var.set(self.settings.cache_ttl_days)
-        self.theme_var.set(self.settings.theme)
+
+        # Load theme with proper display format
+        current_theme = self.settings.theme
+        # Map theme names to display format
+        theme_display_map = {
+            "cosmo": "cosmo (Light)",
+            "flatly": "flatly (Light)",
+            "litera": "litera (Light)",
+            "minty": "minty (Light)",
+            "pulse": "pulse (Light)",
+            "sandstone": "sandstone (Light)",
+            "united": "united (Light)",
+            "yeti": "yeti (Light)",
+            "cyborg": "cyborg (Dark)",
+            "darkly": "darkly (Dark)",
+            "solar": "solar (Dark)",
+            "superhero": "superhero (Dark)",
+            "vapor": "vapor (Dark)"
+        }
+        display_theme = theme_display_map.get(current_theme, f"{current_theme} (Light)")
+        self.theme_var.set(display_theme)
+
         self.window_size_var.set(self.settings.window_size)
         self.auto_backup_var.set(self.settings.auto_backup)
         self.max_concurrent_var.set(self.settings.max_concurrent_requests)
@@ -681,12 +721,20 @@ class SettingsDialog(ttk.Toplevel):
         
         # Update settings
         self.settings.api_key = api_key
-        self.settings.nlt_api_key = nlt_api_key  # <-- ADD THIS LINE
+        self.settings.nlt_api_key = nlt_api_key
         self.settings.default_translation = translation_value
         self.settings.enable_cache = self.enable_cache_var.get()
         self.settings.cache_directory = Path(self.cache_dir_var.get())
         self.settings.cache_ttl_days = self.cache_ttl_var.get()
-        self.settings.theme = self.theme_var.get()
+
+        # Extract theme name from display format (e.g., "darkly (Dark)" -> "darkly")
+        theme_display = self.theme_var.get()
+        if " (" in theme_display:
+            theme_name = theme_display.split(" (")[0]
+        else:
+            theme_name = theme_display
+        self.settings.theme = theme_name
+
         self.settings.window_size = self.window_size_var.get()
         self.settings.auto_backup = self.auto_backup_var.get()
         self.settings.max_concurrent_requests = self.max_concurrent_var.get()
